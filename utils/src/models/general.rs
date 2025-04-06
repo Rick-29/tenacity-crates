@@ -263,7 +263,7 @@ impl fmt::Display for SubscriptionKind {
 impl Application {
     pub fn level(&self) -> Level {
         match self {
-            Self::Any(_) => Level::Basic,
+            Self::Any(_) => Level::None,
             Self::None => Level::None,
         }
     }

@@ -1,0 +1,16 @@
+[domains]
+license = "https://190.162.4.33:9999"
+
+[credentials]
+firestore = "chipav2-d64de-firebase-adminsdk-r6z9u-2a30f97526.json"
+
+[emojis.emojis]
+
+[emojis.welcome_emojis]
+
+[handler]
+watch = []
+length = 250
+threshold = 0.75
+model_path = "detector_burn.mpk"
+welcome = []

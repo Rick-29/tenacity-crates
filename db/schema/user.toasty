@@ -1,0 +1,12 @@
+model SilenceUser {
+    #[key]
+    #[auto]
+    id: Id,
+
+    #[unique]
+    tenacity_id: String,
+
+    exp_time: i64,
+
+    reason: Option<String>,
+}

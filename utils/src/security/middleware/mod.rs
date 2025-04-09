@@ -28,13 +28,13 @@ impl Version {
 }
 
 impl VersionTrait for Version {
-    fn base_decrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
         match self {
             Self::V1 => V1Encryptor.base_decrypt_bytes(bytes),
         }
     }
 
-    fn base_encrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
         match self {
             Self::V1 => V1Encryptor.base_encrypt_bytes(bytes),
         }

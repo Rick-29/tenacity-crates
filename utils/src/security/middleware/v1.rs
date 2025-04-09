@@ -90,18 +90,16 @@ impl TenacityEncryptor for V1Encryptor {
 }
 
 impl VersionTrait for V1Encryptor {
-    fn base_decrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
         let mc = new_magic_crypt!(Self::KEY, 256);
-        let b = bytes.into();
-        let r = mc.decrypt_bytes_to_bytes(&b)?;
+        let r = mc.decrypt_bytes_to_bytes(bytes)?;
         Ok(Bytes::from(r))
         
     }
 
-    fn base_encrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
         let mc = new_magic_crypt!(Self::KEY, 256);
-        let b = bytes.into();
-        let r = mc.encrypt_bytes_to_bytes(&b);
+        let r = mc.encrypt_bytes_to_bytes(bytes);
         Ok(Bytes::from(r))
     }
 }
@@ -173,8 +171,8 @@ mod tests {
     #[test]
     fn test_base_encrypt() {
         let bytes = Bytes::from("Hello World");
-        let encrypted = V1Encryptor.base_encrypt_bytes(bytes.clone());
-        let decrypted = V1Encryptor.base_decrypt_bytes(encrypted.unwrap());
+        let encrypted = V1Encryptor.base_encrypt_bytes(&bytes.clone());
+        let decrypted = V1Encryptor.base_decrypt_bytes(&encrypted.unwrap());
         assert_eq!(bytes, decrypted.unwrap());
     }
 }

@@ -137,8 +137,8 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
 }
 
 pub trait VersionTrait {
-    fn base_decrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes>;
-    fn base_encrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes>;
+    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes>;
+    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes>;
 }
 
 pub trait TenacityEncryptor: Clone + Copy {

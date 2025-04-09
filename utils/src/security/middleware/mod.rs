@@ -4,8 +4,9 @@ pub mod v1;
 use core::{fmt, str};
 
 use anyhow::anyhow;
+use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use traits::{TenacityEncryptor, TenacityMiddlewareStream};
+use traits::{TenacityEncryptor, TenacityMiddlewareStream, VersionTrait};
 use v1::V1Encryptor;
 
 #[cfg(not(feature = "wasm"))]
@@ -22,6 +23,40 @@ impl Version {
     pub fn encryptor(&self) -> impl TenacityEncryptor + TenacityMiddlewareStream {
         match self {
             Self::V1 => V1Encryptor,
+        }
+    }
+}
+
+impl VersionTrait for Version {
+    fn base_decrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+        match self {
+            Self::V1 => V1Encryptor.base_decrypt_bytes(bytes),
+        }
+    }
+
+    fn base_encrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+        match self {
+            Self::V1 => V1Encryptor.base_encrypt_bytes(bytes),
+        }
+    }
+}
+
+impl TryFrom<u16> for Version {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Version::V1),
+            _ => Err(anyhow!("Could parse u16 to Version")),
+        }
+        
+    }
+}
+
+impl From<Version> for u16 {
+    fn from(value: Version) -> Self {
+        match value {
+            Version::V1 => 1,
         }
     }
 }

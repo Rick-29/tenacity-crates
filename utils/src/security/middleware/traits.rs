@@ -136,6 +136,11 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
     }
 }
 
+pub trait VersionTrait {
+    fn base_decrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes>;
+    fn base_encrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes>;
+}
+
 pub trait TenacityEncryptor: Clone + Copy {
     fn generator(&self) -> anyhow::Result<impl Rng>;
     fn advanced_generator(&self, id: impl AsRef<[u8]>) -> anyhow::Result<impl Rng>;

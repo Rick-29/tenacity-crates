@@ -8,12 +8,16 @@ use uuid::Uuid;
 
 use crate::security::seed::{base_generator, generate_uuid, get_generator};
 
-use super::traits::{TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream};
+use super::traits::{TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream, VersionTrait};
 
 const SECRET_LENGTH: usize = 128;
 
 #[derive(Clone, Copy, Default)]
 pub struct V1Encryptor;
+
+impl V1Encryptor {
+    const KEY: &[u8] = b"tenacity";
+}
 
 #[async_trait::async_trait]
 impl TenacityMiddleware for V1Encryptor {
@@ -85,6 +89,23 @@ impl TenacityEncryptor for V1Encryptor {
     }
 }
 
+impl VersionTrait for V1Encryptor {
+    fn base_decrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+        let mc = new_magic_crypt!(Self::KEY, 256);
+        let b = bytes.into();
+        let r = mc.decrypt_bytes_to_bytes(&b)?;
+        Ok(Bytes::from(r))
+        
+    }
+
+    fn base_encrypt_bytes(&self, bytes: impl Into<Bytes>) -> anyhow::Result<Bytes> {
+        let mc = new_magic_crypt!(Self::KEY, 256);
+        let b = bytes.into();
+        let r = mc.encrypt_bytes_to_bytes(&b);
+        Ok(Bytes::from(r))
+    }
+}
+
 impl TenacityMiddlewareStream for V1Encryptor {}
 // #[cfg(test)]
 // mod tests {
@@ -144,3 +165,16 @@ impl TenacityMiddlewareStream for V1Encryptor {}
 //         Ok(())
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_base_encrypt() {
+        let bytes = Bytes::from("Hello World");
+        let encrypted = V1Encryptor.base_encrypt_bytes(bytes.clone());
+        let decrypted = V1Encryptor.base_decrypt_bytes(encrypted.unwrap());
+        assert_eq!(bytes, decrypted.unwrap());
+    }
+}

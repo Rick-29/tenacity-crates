@@ -1,5 +1,5 @@
 pub mod traits;
-pub mod v1;
+pub mod versions;
 
 use core::{fmt, str};
 
@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use traits::{TenacityEncryptor, TenacityMiddlewareStream, VersionTrait};
-use v1::V1Encryptor;
+use versions::V1Encryptor;
 
 #[cfg(not(feature = "wasm"))]
 use utoipa::ToSchema;

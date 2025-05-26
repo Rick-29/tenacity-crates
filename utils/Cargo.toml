@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-# default = ["security"]
+default = ["security"]
 ai = ["dep:burn", "dep:bincode"]
 db = ["dep:tenacity-db"]
 logging = ["dep:tracing-subscriber"]

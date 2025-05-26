@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::security::seed::{base_generator, generate_uuid, get_generator};
 
-use super::traits::{TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream, VersionTrait};
+use super::super::traits::{TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream, VersionTrait};
 
 const SECRET_LENGTH: usize = 128;
 
@@ -21,18 +21,26 @@ impl V1Encryptor {
 
 #[async_trait::async_trait]
 impl TenacityMiddleware for V1Encryptor {
+    
+
     fn get_secret(&self, id: Uuid) -> anyhow::Result<String> {
         let mut rng = get_generator(id);
 
         Ok(Alphanumeric.sample_string(&mut rng, SECRET_LENGTH))
     }
 
-    async fn encrypt_str(&self, secret: &str, data: &str) -> anyhow::Result<String> {
+    async fn encrypt_str<P>(&self, secret: P, data: &str) -> anyhow::Result<String> 
+    where 
+        P: AsRef<[u8]> + Send
+    {
         let mc = new_magic_crypt!(secret, 256);
         Ok(mc.encrypt_str_to_base64(data))
     }
 
-    async fn decrypt_str(&self, secret: &str, data: &str) -> anyhow::Result<String> {
+    async fn decrypt_str<P>(&self, secret: P, data: &str) -> anyhow::Result<String>
+    where 
+        P: AsRef<[u8]> + Send
+    {
         let mc = new_magic_crypt!(secret, 256);
         mc.decrypt_base64_to_string(data)
             .map_err(|e| anyhow::anyhow!("Error decoding base64 body, {e}"))
@@ -54,20 +62,28 @@ impl TenacityMiddleware for V1Encryptor {
         Uuid::from_str(&id).map_err(anyhow::Error::from)
     }
 
-    fn encrypt_bytes<T: ?Sized + AsRef<[u8]>>(
+    fn encrypt_bytes<T, P>(
         &self,
-        secret: &str,
+        secret: P,
         data: &T,
-    ) -> anyhow::Result<Bytes> {
+    ) -> anyhow::Result<Bytes> 
+    where 
+        T: ?Sized + AsRef<[u8]>,
+        P: AsRef<[u8]> + Send
+    {
         let mc: magic_crypt::MagicCrypt256 = new_magic_crypt!(secret, 256);
         let bytes = Bytes::from(mc.encrypt_bytes_to_bytes(data));
         Ok(bytes)
     }
-    fn decrypt_bytes<T: ?Sized + AsRef<[u8]>>(
+    fn decrypt_bytes<T, P>(
         &self,
-        secret: &str,
+        secret: P,
         data: &T,
-    ) -> anyhow::Result<Bytes> {
+    ) -> anyhow::Result<Bytes> 
+        where 
+        T: ?Sized + AsRef<[u8]>,
+        P: AsRef<[u8]> + Send
+{
         let mc = new_magic_crypt!(secret, 256);
         mc.decrypt_bytes_to_bytes(data)
             .map_err(anyhow::Error::from)
@@ -166,12 +182,14 @@ impl TenacityMiddlewareStream for V1Encryptor {}
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
     fn test_base_encrypt() {
         let bytes = Bytes::from("Hello World");
         let encrypted = V1Encryptor.base_encrypt_bytes(&bytes.clone());
+
         let decrypted = V1Encryptor.base_decrypt_bytes(&encrypted.unwrap());
         assert_eq!(bytes, decrypted.unwrap());
     }

@@ -13,30 +13,38 @@ use futures_util::Stream;
 use rand::Rng;
 use uuid::Uuid;
 
-use super::v1::V1Encryptor;
-
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 #[async_trait::async_trait]
 pub trait TenacityMiddleware: Clone + Copy + Send + Sync {
     fn get_secret(&self, id: Uuid) -> anyhow::Result<String>;
 
-    async fn encrypt_str(&self, secret: &str, data: &str) -> anyhow::Result<String>;
-    async fn decrypt_str(&self, secret: &str, data: &str) -> anyhow::Result<String>;
+    async fn encrypt_str<P>(&self, secret: P, data: &str) -> anyhow::Result<String>
+    where
+        P: AsRef<[u8]> + Send;
+    async fn decrypt_str<P>(&self, secret: P, data: &str) -> anyhow::Result<String>
+    where
+        P: AsRef<[u8]> + Send;
 
     async fn encrypt_header(&self, data: Uuid) -> anyhow::Result<String>;
     async fn decrypt_header(&self, data: &str) -> anyhow::Result<Uuid>;
 
-    fn encrypt_bytes<T: ?Sized + AsRef<[u8]>>(
+    fn encrypt_bytes<T, P>(
         &self,
-        secret: &str,
+        secret: P,
         data: &T,
-    ) -> anyhow::Result<Bytes>;
-    fn decrypt_bytes<T: ?Sized + AsRef<[u8]>>(
+    ) -> anyhow::Result<Bytes>
+    where
+        T: ?Sized + AsRef<[u8]>,
+        P: AsRef<[u8]> + Send;
+    fn decrypt_bytes<T, P>(
         &self,
-        secret: &str,
+        secret: P,
         data: &T,
-    ) -> anyhow::Result<Bytes>;
+    ) -> anyhow::Result<Bytes>
+    where
+        T: ?Sized + AsRef<[u8]>,
+        P: AsRef<[u8]> + Send;
 
     async fn encrypt(&self, id: Uuid, data: &str) -> anyhow::Result<String> {
         let secret = self.get_secret(id)?;
@@ -102,8 +110,7 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
             async move {
                 let inner = value.clone();
                 match item {
-                    Ok(bytes) => V1Encryptor
-                        .encrypt_bytes(&inner, &bytes.into())
+                    Ok(bytes) => self.encrypt_bytes(&inner, &bytes.into())
                         .map_err(BoxError::from),
                     Err(e) => Err(e.into()),
                 }
@@ -126,8 +133,8 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
             async move {
                 let inner = value.clone();
                 match item {
-                    Ok(bytes) => V1Encryptor
-                        .decrypt_bytes(&inner, &bytes.into())
+                    Ok(bytes) => self
+                        .decrypt_bytes(inner.as_bytes(), &bytes.into())
                         .map_err(BoxError::from),
                     Err(e) => Err(e.into()),
                 }

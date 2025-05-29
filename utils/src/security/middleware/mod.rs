@@ -49,7 +49,6 @@ impl TryFrom<u16> for Version {
             1 => Ok(Version::V1),
             _ => Err(anyhow!("Could parse u16 to Version")),
         }
-        
     }
 }
 

@@ -1,4 +1,5 @@
 use core::str;
+use std::str::FromStr;
 
 #[cfg(feature = "security")]
 use axum::{body::Body, extract::Request, http::HeaderValue, response::Response};
@@ -10,38 +11,54 @@ use hyper::header::CONTENT_LENGTH;
 use futures_util::stream::StreamExt;
 use futures_util::Stream;
 
+use magic_crypt::{new_magic_crypt, MagicCryptTrait};
+use rand::distr::{Alphanumeric, SampleString};
 use rand::Rng;
 use uuid::Uuid;
 
+use crate::security::get_generator;
+use crate::security::seed::{base_generator, generate_uuid};
+
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
+const SECRET_LENGTH: usize = 128;
 
 #[async_trait::async_trait]
 pub trait TenacityMiddleware: Clone + Copy + Send + Sync {
-    fn get_secret(&self, id: Uuid) -> anyhow::Result<String>;
+    fn get_secret(&self, id: Uuid) -> anyhow::Result<String> {
+        let mut rng = get_generator(id);
 
+        Ok(Alphanumeric.sample_string(&mut rng, SECRET_LENGTH))
+    }
     async fn encrypt_str<P>(&self, secret: P, data: &str) -> anyhow::Result<String>
     where
         P: AsRef<[u8]> + Send;
+
     async fn decrypt_str<P>(&self, secret: P, data: &str) -> anyhow::Result<String>
     where
         P: AsRef<[u8]> + Send;
 
-    async fn encrypt_header(&self, data: Uuid) -> anyhow::Result<String>;
-    async fn decrypt_header(&self, data: &str) -> anyhow::Result<Uuid>;
+    async fn encrypt_header(&self, data: Uuid) -> anyhow::Result<String> {
+        let mut rng = base_generator();
+        let id = data.simple().to_string();
 
-    fn encrypt_bytes<T, P>(
-        &self,
-        secret: P,
-        data: &T,
-    ) -> anyhow::Result<Bytes>
+        let secret = Alphanumeric.sample_string(&mut rng, 32);
+        let mc = new_magic_crypt!(secret, 256);
+        Ok(mc.encrypt_str_to_base64(id))
+    }
+    async fn decrypt_header(&self, data: &str) -> anyhow::Result<Uuid> {
+        let mut rng = base_generator();
+        let secret = Alphanumeric.sample_string(&mut rng, 32);
+        let mc = new_magic_crypt!(secret, 256);
+        let id = mc.decrypt_base64_to_string(data)?;
+        Uuid::from_str(&id).map_err(anyhow::Error::from)
+    }
+
+    fn encrypt_bytes<T, P>(&self, secret: P, data: &T) -> anyhow::Result<Bytes>
     where
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send;
-    fn decrypt_bytes<T, P>(
-        &self,
-        secret: P,
-        data: &T,
-    ) -> anyhow::Result<Bytes>
+    fn decrypt_bytes<T, P>(&self, secret: P, data: &T) -> anyhow::Result<Bytes>
     where
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send;
@@ -110,7 +127,8 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
             async move {
                 let inner = value.clone();
                 match item {
-                    Ok(bytes) => self.encrypt_bytes(&inner, &bytes.into())
+                    Ok(bytes) => self
+                        .encrypt_bytes(&inner, &bytes.into())
                         .map_err(BoxError::from),
                     Err(e) => Err(e.into()),
                 }
@@ -149,9 +167,17 @@ pub trait VersionTrait {
 }
 
 pub trait TenacityEncryptor: Clone + Copy {
-    fn generator(&self) -> anyhow::Result<impl Rng>;
-    fn advanced_generator(&self, id: impl AsRef<[u8]>) -> anyhow::Result<impl Rng>;
-    fn generate_temporal_id(&self) -> anyhow::Result<Uuid>;
+    fn advanced_generator(&self, id: impl AsRef<[u8]>) -> anyhow::Result<impl rand::Rng> {
+        Ok(get_generator(Uuid::from_slice(id.as_ref())?))
+    }
+
+    fn generator(&self) -> anyhow::Result<impl rand::Rng> {
+        Ok(base_generator())
+    }
+
+    fn generate_temporal_id(&self) -> anyhow::Result<Uuid> {
+        generate_uuid()
+    }
 }
 
 #[cfg(test)]

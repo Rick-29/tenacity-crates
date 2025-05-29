@@ -25,6 +25,8 @@ wasm = [
     "dep:async-trait",
     "dep:async-stream",
     "dep:futures-util",
+    "dep:argon2",
+    "dep:thiserror",
 
     "helper",
 ]
@@ -41,7 +43,9 @@ security = [
     "dep:async-trait",
     "dep:async-stream",
     "dep:futures-util",
-
+    "dep:argon2",
+    "dep:thiserror",
+    
     "logging",
     "helper",
 ]
@@ -95,6 +99,9 @@ futures-util = { version = "0.3.31", optional = true }
 
 tenacity-db = { path = "../db", optional = true }
 bytes = "1.8.0"
+argon2 = { version = "0.5.3", optional = true}
+thiserror = { version = "2.0.12", optional = true }
+aes-gcm = "0.10.3"
 
 [dev-dependencies]
 tokio.workspace = true

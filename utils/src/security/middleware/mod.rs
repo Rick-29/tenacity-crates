@@ -57,7 +57,7 @@ impl TryFrom<u16> for Version {
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Version::V1),
-            2 => Ok(Version::V2(V2Encryptor::new_static())),
+            2 => Ok(Version::V2(V2Encryptor::default())), // Using default as it will create a new random salt and nonce and for replicability i can use the `new_static` function
             _ => Err(anyhow!("Could parse u16 to Version")),
         }
     }
@@ -87,7 +87,7 @@ impl TryFrom<&str> for Version {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value.to_lowercase().as_str() {
             "v1" => Ok(Self::V1),
-            "v2" => Ok(Self::V2(V2Encryptor::new_static())),
+            "v2" => Ok(Self::V2(V2Encryptor::default())),
             _ => Err(anyhow!("Could parse str to Version")),
         }
     }

@@ -3,6 +3,8 @@ use argon2::{password_hash::rand_core::{OsRng, RngCore}, Argon2};
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
+#[cfg(not(feature = "wasm"))]
+use utoipa::ToSchema;
 
 use crate::security::{middleware::traits::VersionTrait, TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream};
 
@@ -22,7 +24,8 @@ pub const DEFAULT_SALT: [u8; 16] = [
     0x8A, 0x9C, 0xA1, 0xB3, 0xC5, 0xD7, 0xE9, 0xF1, // More unique bytes
 ];
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(not(feature = "wasm"), derive(ToSchema))]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct V2Encryptor {
     salt: [u8; SALT_SIZE],
     nonce: [u8; NONCE_SIZE],

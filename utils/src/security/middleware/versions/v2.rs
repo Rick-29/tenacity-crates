@@ -111,11 +111,11 @@ impl TenacityMiddlewareStream for V2Encryptor {}
 
 impl VersionTrait for V2Encryptor {
     fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
-        self.encrypt_bytes(DEFAULT_PASSWORD, bytes)
+        Self::new_static().encrypt_bytes(DEFAULT_PASSWORD, bytes)
     }
 
     fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
-        self.decrypt_bytes(DEFAULT_PASSWORD, bytes)
+        Self::new_static().decrypt_bytes(DEFAULT_PASSWORD, bytes)
     }
 }
 
@@ -157,4 +157,14 @@ mod tests {
         dbg!(cipher.len());
         dbg!(decrypted.len());
     }
+    #[test]
+    fn test_encrypt_decrypt_base() {
+    
+        let data = read_to_string(r#"C:\Users\ayfmp\OneDrive\Projects\tenacity-crates\Cargo.lock"#).unwrap();
+        let cipher = V2Encryptor::new_static().base_encrypt_bytes(data.as_bytes()).unwrap();
+        let decrypted = V2Encryptor::new_static().base_decrypt_bytes(&cipher).unwrap();
+        assert_eq!(data.as_bytes(), decrypted.as_ref());
+        assert_ne!(decrypted, cipher)
+    }
+
 }

@@ -13,7 +13,6 @@ use futures_util::Stream;
 
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
 use rand::distr::{Alphanumeric, SampleString};
-use rand::Rng;
 use uuid::Uuid;
 
 use crate::security::get_generator;

@@ -3,9 +3,6 @@ use core::str;
 use bytes::Bytes;
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
-use crate::security::seed::{base_generator, generate_uuid, get_generator};
 
 use super::super::traits::{
     TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream, VersionTrait,

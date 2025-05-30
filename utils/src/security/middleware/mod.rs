@@ -57,6 +57,7 @@ impl TryFrom<u16> for Version {
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Version::V1),
+            2 => Ok(Version::V2(V2Encryptor::new_static())),
             _ => Err(anyhow!("Could parse u16 to Version")),
         }
     }

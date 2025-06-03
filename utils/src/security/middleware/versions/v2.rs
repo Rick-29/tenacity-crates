@@ -1,3 +1,5 @@
+use std::io::{Read, Seek, Write, SeekFrom};
+use aead::stream::{EncryptorBE32, DecryptorBE32};
 use aes_gcm::{aead::Aead, Aes256Gcm, Key, KeyInit};
 use argon2::Argon2;
 use rand::{rngs::OsRng, TryRngCore};
@@ -87,11 +89,7 @@ impl TenacityMiddleware for V2Encryptor {
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        let key = self.generate_key(secret)?;
-        let cipher = Aes256Gcm::new(&key);
-
-        let ciphertext_with_tag = cipher.encrypt(&self.nonce.into(), data.as_ref()).map_err(EncryptorError::AesGcmEncryption)?;
-        Ok(Bytes::from(ciphertext_with_tag))
+        VersionTrait::encrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
     }
 
     fn decrypt_bytes<T, P>(&self, secret: P, data: &T) -> anyhow::Result<Bytes>
@@ -99,23 +97,86 @@ impl TenacityMiddleware for V2Encryptor {
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        let key = self.generate_key(secret)?;
-        let cipher = Aes256Gcm::new(&key);
-        
-        let ciphertext_with_tag = cipher.decrypt(&self.nonce.into(), data.as_ref()).map_err(EncryptorError::AesGcmDecryption)?;
-        Ok(Bytes::from(ciphertext_with_tag))
+        VersionTrait::decrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
     }
 }
 
 impl TenacityMiddlewareStream for V2Encryptor {}
 
 impl VersionTrait for V2Encryptor {
-    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
-        Self::default().encrypt_bytes(DEFAULT_PASSWORD, bytes)
+    const DEFAULT_KEY: &[u8] = DEFAULT_PASSWORD;
+
+    fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+            &self,
+            secret: P,
+            bytes: &T,
+        ) -> EncryptorResult<Bytes> {
+        let key = self.generate_key(secret)?;
+        let cipher = Aes256Gcm::new(&key);
+
+        let ciphertext_with_tag = cipher.encrypt(&self.nonce.into(), bytes.as_ref()).map_err(EncryptorError::AesGcmEncryption)?;
+        Ok(Bytes::from(ciphertext_with_tag))
     }
 
-    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
-        Self::default().decrypt_bytes(DEFAULT_PASSWORD, bytes)
+    fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+            &self,
+            secret: P,
+            bytes: &T,
+        ) -> EncryptorResult<Bytes> {
+        let key = self.generate_key(secret)?;
+        let cipher = Aes256Gcm::new(&key);
+        
+        let ciphertext_with_tag = cipher.decrypt(&self.nonce.into(), bytes.as_ref()).map_err(EncryptorError::AesGcmDecryption)?;
+        Ok(Bytes::from(ciphertext_with_tag))
+    }
+
+    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+            &self,
+            secret: P,
+            source: &mut R,
+            destination: &mut W,
+        ) -> EncryptorResult<usize> {
+        let key = self.generate_key(secret)?;
+        let cipher = Aes256Gcm::new(&key);
+        let mut encryptor = EncryptorBE32::from_aead(cipher, self.nonce[..7].into());
+        let mut buf = Vec::with_capacity(Self::CHUNK_SIZE);
+        // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
+        while source.take(Self::CHUNK_SIZE as u64).read_to_end(&mut buf)? == Self::CHUNK_SIZE {
+            let encrypted = encryptor.encrypt_next(buf.as_slice()).unwrap();
+            Write::write(destination, &encrypted).unwrap();
+            buf.clear();
+        }
+        // Encrypt last chunck smaller
+        let encrypted = encryptor.encrypt_last(buf.as_slice()).unwrap();
+        Write::write(destination, &encrypted).unwrap();
+        buf.clear();
+
+        destination.seek(SeekFrom::End(0)).map(|d| d as usize).map_err(EncryptorError::from)
+
+    }
+
+    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+            &self,
+            secret: P,
+            source: &mut R,
+            destination: &mut W,
+        ) -> EncryptorResult<usize> {
+            let key = self.generate_key(secret)?;
+        let cipher = Aes256Gcm::new(&key);
+        let mut encryptor = DecryptorBE32::from_aead(cipher, self.nonce[..7].into());
+        let mut buf = Vec::with_capacity(Self::CHUNK_SIZE + 16); // Chunk size + MAC tag
+        // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
+        while source.take(Self::CHUNK_SIZE as u64 + 16).read_to_end(&mut buf)? == Self::CHUNK_SIZE + 16 {
+            let encrypted = encryptor.decrypt_next(buf.as_slice()).unwrap();
+            Write::write(destination, &encrypted).unwrap();
+            buf.clear();
+        }
+        // Encrypt last chunck smaller
+        let encrypted = encryptor.decrypt_next(buf.as_slice()).unwrap();
+        Write::write(destination, &encrypted).unwrap();
+        buf.clear();
+
+        destination.seek(SeekFrom::End(0)).map(|d| d as usize).map_err(EncryptorError::from)
     }
 }
 
@@ -154,8 +215,8 @@ mod tests {
         let secret = b"my_secret";
         let data = read_to_string(r#"C:\Users\ayfmp\OneDrive\Projects\tenacity-crates\Cargo.lock"#).unwrap();
         let v2_encryptor = V2Encryptor::default();
-        let cipher = v2_encryptor.encrypt_bytes(secret, data.as_bytes()).unwrap();
-        let decrypted = v2_encryptor.decrypt_bytes(secret, &cipher).unwrap();
+        let cipher = VersionTrait::encrypt_bytes(&v2_encryptor, secret, data.as_bytes()).unwrap();
+        let decrypted = VersionTrait::decrypt_bytes(&v2_encryptor, secret, &cipher).unwrap();
         assert_eq!(data.as_bytes(), decrypted.as_ref());
         assert_ne!(decrypted, cipher);
         dbg!(cipher.len());
@@ -184,19 +245,19 @@ mod tests {
 
         let mut data = OpenOptions::new().read(true).open("Cargo.toml").unwrap();
         let mut buf = Vec::with_capacity(chunk_size);
-        ciphertext.write(&(chunk_size as u64).to_be_bytes()).unwrap();
-        let ciphertext_test = encryptor_test.encrypt_bytes([0u8;KEY_SIZE], read_to_string("Cargo.toml").unwrap().as_bytes()).unwrap();
+        ciphertext.write_all(&(chunk_size as u64).to_be_bytes()).unwrap();
+        let ciphertext_test = VersionTrait::encrypt_bytes(&encryptor_test, [0u8;KEY_SIZE], read_to_string("Cargo.toml").unwrap().as_bytes()).unwrap();
 		// Prepend ciphertext with the nonce
-		ciphertext.write(nonce).unwrap();
+		ciphertext.write_all(nonce).unwrap();
 
         while (&mut data).take(chunk_size as u64).read_to_end(&mut buf).unwrap() == chunk_size {
 
             let encrypted = encryptor.encrypt_next(buf.as_slice()).unwrap();
-            std::io::Write::write(&mut ciphertext, &encrypted).unwrap();
+            Write::write(&mut ciphertext, &encrypted).unwrap();
             buf.clear();
         }
         let encrypted = encryptor.encrypt_last(buf.as_slice()).unwrap();
-        std::io::Write::write(&mut ciphertext, &encrypted).unwrap();
+        Write::write(&mut ciphertext, &encrypted).unwrap();
         buf.clear();
         // loop {
         //     buf.clear();
@@ -216,7 +277,7 @@ mod tests {
 		// 	// know why they exist.
 
 		// 	let encrypted = encryptor.encrypt_next(buf.as_slice()).unwrap();
-		// 	std::io::Write::write(&mut ciphertext, &encrypted).unwrap();
+		// 	Write::write(&mut ciphertext, &encrypted).unwrap();
 		// }
 
 		ciphertext.rewind().unwrap();

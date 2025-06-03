@@ -35,37 +35,8 @@ impl Version {
 }
 
 impl VersionTrait for Version {
-    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> Result<Bytes, EncryptorError> {
-        match self {
-            Self::V1 => V1Encryptor.base_decrypt_bytes(bytes),
-            Self::V2(v2) => v2.base_decrypt_bytes(bytes),
-        }
-    }
-
-    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> Result<Bytes, EncryptorError> {
-        match self {
-            Self::V1 => V1Encryptor.base_encrypt_bytes(bytes),
-            Self::V2(v2) => v2.base_encrypt_bytes(bytes),
-
-        }
-    }
-
-    fn base_decrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write>(
-            &self,
-            source: &mut R,
-            destination: &mut W,
-        ) -> Result<usize, EncryptorError> {
-        todo!()
-    }
-
-    fn base_encrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write>(
-            &self,
-            source: &mut R,
-            destination: &mut W,
-        ) -> Result<usize, EncryptorError> {
-        todo!()
-    }
-
+    const DEFAULT_KEY: &[u8] = b"VersionTraitDefault";
+    
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,
             secret: P,

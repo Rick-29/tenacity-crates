@@ -1,8 +1,12 @@
+use std::io::{Read, Seek, SeekFrom, Write};
 use core::str;
+use magic_crypt::generic_array::typenum::U1024;
 
 use bytes::Bytes;
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
 use serde::{Deserialize, Serialize};
+
+use crate::security::middleware::versions::{error::EncryptorError, EncryptorResult};
 
 use super::super::traits::{
     TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream, VersionTrait,
@@ -40,35 +44,87 @@ impl TenacityMiddleware for V1Encryptor {
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        let mc: magic_crypt::MagicCrypt256 = new_magic_crypt!(secret, 256);
-        let bytes = Bytes::from(mc.encrypt_bytes_to_bytes(data));
-        Ok(bytes)
+        VersionTrait::encrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
     }
     fn decrypt_bytes<T, P>(&self, secret: P, data: &T) -> anyhow::Result<Bytes>
     where
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        let mc = new_magic_crypt!(secret, 256);
-        mc.decrypt_bytes_to_bytes(data)
-            .map_err(anyhow::Error::from)
-            .map(Bytes::from)
+        VersionTrait::decrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
     }
 }
 
 impl TenacityEncryptor for V1Encryptor {}
 
 impl VersionTrait for V1Encryptor {
-    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
-        let mc = new_magic_crypt!(Self::KEY, 256);
-        let r = mc.decrypt_bytes_to_bytes(bytes)?;
-        Ok(Bytes::from(r))
-    }
+    const DEFAULT_KEY: &[u8] = Self::KEY;
 
-    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
-        let mc = new_magic_crypt!(Self::KEY, 256);
-        let r = mc.encrypt_bytes_to_bytes(bytes);
-        Ok(Bytes::from(r))
+    fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+        &self,
+        secret: P,
+        bytes: &T,
+    ) -> super::EncryptorResult<Bytes> {
+        let mc: magic_crypt::MagicCrypt256 = new_magic_crypt!(secret, 256);
+        let bytes = Bytes::from(mc.encrypt_bytes_to_bytes(bytes));
+        Ok(bytes)
+    }
+    
+    fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+        &self,
+        secret: P,
+        bytes: &T,
+    ) -> super::EncryptorResult<Bytes> {
+        let mc = new_magic_crypt!(secret, 256);
+        mc.decrypt_bytes_to_bytes(bytes)
+            .map_err(EncryptorError::from)
+            .map(Bytes::from)
+    }
+    
+    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+        &self,
+        secret: P,
+        source: &mut R,
+        destination: &mut W,
+    ) -> super::EncryptorResult<usize> {
+        let mc = new_magic_crypt!(secret, 256);
+        mc.encrypt_reader_to_writer2::<U1024>(source, destination)?;
+        Ok(destination.seek(SeekFrom::End(0)).map(|d| d as usize)?)
+    }
+    
+    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+        &self,
+        secret: P,
+        source: &mut R,
+        destination: &mut W,
+    ) -> super::EncryptorResult<usize> {
+        let mc = new_magic_crypt!(secret, 256);
+        mc.decrypt_reader_to_writer2::<U1024>(source, destination)?;
+        Ok(destination.seek(SeekFrom::End(0)).map(|d| d as usize)?)
+    }
+    
+    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
+        VersionTrait::encrypt_bytes(self, Self::KEY, bytes)
+    }
+        
+    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
+        VersionTrait::decrypt_bytes(self, Self::KEY, bytes)
+    }
+    
+    fn base_encrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
+        &self,
+        source: &mut R,
+        destination: &mut W,
+    ) -> super::EncryptorResult<usize> {
+        VersionTrait::encrypt_bytes_stream(self, Self::KEY, source, destination)
+    }
+    
+    fn base_decrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
+        &self,
+        source: &mut R,
+        destination: &mut W,
+    ) -> super::EncryptorResult<usize> {
+        VersionTrait::decrypt_bytes_stream(self, Self::KEY, source, destination)
     }
 }
 

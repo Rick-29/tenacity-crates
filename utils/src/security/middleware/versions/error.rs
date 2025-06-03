@@ -9,6 +9,11 @@ pub enum EncryptorError {
     #[error("AES-GCM decryption error, {0}")]
     AesGcmDecryption(aes_gcm::Error),
     #[error("Rand OS error, {0}")]
-    RandOs(#[from] OsError)
+    RandOs(#[from] OsError),
+    #[error("MagicCrypt Decryption error, {0}")]
+    MagicCryptDecryption(#[from] magic_crypt::MagicCryptError),
+    #[error("Std IO error, {0}")]
+    Io(#[from] std::io::Error),
+
 }
 

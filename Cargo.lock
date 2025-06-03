@@ -3788,6 +3788,7 @@ dependencies = [
 name = "tenacity-utils"
 version = "0.1.1"
 dependencies = [
+ "aead",
  "aes-gcm",
  "anyhow",
  "argon2",
@@ -3799,6 +3800,7 @@ dependencies = [
  "burn",
  "bytes",
  "chrono",
+ "cipher",
  "futures-util",
  "hyper",
  "magic-crypt",

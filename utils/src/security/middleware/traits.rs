@@ -16,9 +16,8 @@ use rand::distr::{Alphanumeric, SampleString};
 use uuid::Uuid;
 
 use crate::security::get_generator;
+use crate::security::middleware::versions::EncryptorResult;
 use crate::security::seed::{base_generator, generate_uuid};
-
-use super::versions::error::EncryptorError;
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -175,6 +174,10 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
 /// Implementors of this trait are expected to handle the specifics of the
 /// cryptographic algorithms for a particular "version" or configuration.
 pub trait VersionTrait {
+    /// The default key used by the base encryption/decryption methods.
+    /// It provides a fixed encryption mechanism suitable for basic obfuscation.
+    const DEFAULT_KEY: &[u8];
+
     /// Default chunk size for stream-based operations, in bytes.
     ///
     /// Implementations may use this as a suggestion for buffer sizes when
@@ -196,7 +199,7 @@ pub trait VersionTrait {
         &self,
         secret: P,
         bytes: &T,
-    ) -> Result<Bytes, EncryptorError>;
+    ) -> EncryptorResult<Bytes>;
 
     /// Decrypts a slice of bytes using a provided secret.
     ///
@@ -211,7 +214,7 @@ pub trait VersionTrait {
         &self,
         secret: P,
         bytes: &T,
-    ) -> Result<Bytes, EncryptorError>;
+    ) -> EncryptorResult<Bytes>;
 
     /// Encrypts data from a source stream and writes the encrypted output to a destination stream,
     /// using a provided secret.
@@ -227,12 +230,12 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn encrypt_bytes_stream<R: Read + Seek, W: Write, P: AsRef<[u8]> + Send>(
+    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
         &self,
         secret: P,
         source: &mut R,
         destination: &mut W,
-    ) -> Result<usize, EncryptorError>;
+    ) -> EncryptorResult<usize>;
 
     /// Decrypts data from a source stream and writes the decrypted output to a destination stream,
     /// using a provided secret.
@@ -247,12 +250,12 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn decrypt_bytes_stream<R: Read + Seek, W: Write, P: AsRef<[u8]> + Send>(
+    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
         &self,
         secret: P,
         source: &mut R,
         destination: &mut W,
-    ) -> Result<usize, EncryptorError>;
+    ) -> EncryptorResult<usize>;
 
     /// Decrypts a slice of bytes using a base (e.g., fixed or internal)
     /// obfuscation/decryption mechanism.
@@ -269,7 +272,9 @@ pub trait VersionTrait {
     fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(
         &self,
         bytes: &T,
-    ) -> Result<Bytes, EncryptorError>;
+    ) -> EncryptorResult<Bytes> {
+        self.decrypt_bytes(Self::DEFAULT_KEY, bytes)
+    }
 
     /// Encrypts/obfuscates a slice of bytes using a base (e.g., fixed or internal)
     /// obfuscation/encryption mechanism.
@@ -286,7 +291,9 @@ pub trait VersionTrait {
     fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(
         &self,
         bytes: &T,
-    ) -> Result<Bytes, EncryptorError>;
+    ) -> EncryptorResult<Bytes> {
+        self.encrypt_bytes(Self::DEFAULT_KEY, bytes)
+    }
 
     /// Encrypts/obfuscates data from a source stream to a destination stream
     /// using a base (e.g., fixed or internal) mechanism.
@@ -301,11 +308,13 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn base_encrypt_bytes_stream<R: Read + Seek, W: Write>(
+    fn base_encrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
         &self,
         source: &mut R,
         destination: &mut W,
-    ) -> Result<usize, EncryptorError>;
+    ) -> EncryptorResult<usize> {
+        self.encrypt_bytes_stream(Self::DEFAULT_KEY, source, destination)
+    }
 
     /// Decrypts/de-obfuscates data from a source stream to a destination stream
     /// using a base (e.g., fixed or internal) mechanism.
@@ -321,11 +330,13 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn base_decrypt_bytes_stream<R: Read + Seek, W: Write>(
+    fn base_decrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
         &self,
         source: &mut R,
         destination: &mut W,
-    ) -> Result<usize, EncryptorError>;
+    ) -> EncryptorResult<usize> {
+        self.decrypt_bytes_stream(Self::DEFAULT_KEY, source, destination)
+    }
 }
 
 pub trait TenacityEncryptor: Clone + Copy {

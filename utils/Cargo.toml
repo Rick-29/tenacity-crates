@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["security"]
+default = ["wasm"]
 ai = ["dep:burn", "dep:bincode"]
 db = ["dep:tenacity-db"]
 logging = ["dep:tracing-subscriber"]
@@ -27,6 +27,7 @@ wasm = [
     "dep:futures-util",
     "dep:argon2",
     "dep:thiserror",
+    "dep:aes-gcm",
 
     "helper",
 ]
@@ -45,6 +46,7 @@ security = [
     "dep:futures-util",
     "dep:argon2",
     "dep:thiserror",
+    "dep:aes-gcm",
     
     "logging",
     "helper",
@@ -101,7 +103,10 @@ tenacity-db = { path = "../db", optional = true }
 bytes = "1.8.0"
 argon2 = { version = "0.5.3", optional = true}
 thiserror = { version = "2.0.12", optional = true }
-aes-gcm = "0.10.3"
+aes-gcm = { version = "0.10.3", optional = true }
+cipher = "0.4.4"
+aead = { version = "0.5.2", features = ["stream"] }
+
 
 [dev-dependencies]
 tokio.workspace = true

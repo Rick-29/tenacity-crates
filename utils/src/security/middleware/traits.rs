@@ -1,6 +1,6 @@
 use core::str;
 use std::str::FromStr;
-
+use std::io::{Read, Seek, Write};
 #[cfg(feature = "security")]
 use axum::{body::Body, extract::Request, http::HeaderValue, response::Response};
 
@@ -17,6 +17,8 @@ use uuid::Uuid;
 
 use crate::security::get_generator;
 use crate::security::seed::{base_generator, generate_uuid};
+
+use super::versions::error::EncryptorError;
 
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -160,9 +162,170 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
     }
 }
 
+/// Defines a contract for versioned encryption and decryption operations.
+///
+/// This trait provides methods for transforming byte data, either as complete
+/// in-memory buffers or as streams. It supports two main modes of operation:
+///
+/// 1.  **Secret-based encryption/decryption:** Uses a user-provided secret (e.g., a password)
+///     for cryptographic operations.
+/// 2.  **Base encryption/decryption:** Implements a form of basic code obfuscation
+///     or a default, fixed encryption mechanism that does not require a dynamic user secret.
+///
+/// Implementors of this trait are expected to handle the specifics of the
+/// cryptographic algorithms for a particular "version" or configuration.
 pub trait VersionTrait {
-    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes>;
-    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes>;
+    /// Default chunk size for stream-based operations, in bytes.
+    ///
+    /// Implementations may use this as a suggestion for buffer sizes when
+    /// reading from or writing to streams.
+    const CHUNK_SIZE: usize = 1024; // 1 KiB
+
+    /// Encrypts a slice of bytes using a provided secret.
+    ///
+    /// # Parameters
+    /// - `secret`: The secret (e.g., password) to use for encryption. Must be `Send`
+    ///             as it might be used in a concurrent context by the implementor.
+    /// - `bytes`: The plaintext byte data to encrypt. This accepts any type that
+    ///            can be referenced as a byte slice (e.g., `&[u8]`, `Vec<u8>`, `String`).
+    ///
+    /// # Returns
+    /// A `Result` containing the encrypted data as `Bytes` on success,
+    /// or an `EncryptorError` on failure.
+    fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+        &self,
+        secret: P,
+        bytes: &T,
+    ) -> Result<Bytes, EncryptorError>;
+
+    /// Decrypts a slice of bytes using a provided secret.
+    ///
+    /// # Parameters
+    /// - `secret`: The secret (e.g., password) used for encryption. Must be `Send`.
+    /// - `bytes`: The ciphertext byte data to decrypt.
+    ///
+    /// # Returns
+    /// A `Result` containing the decrypted (plaintext) data as `Bytes` on success,
+    /// or an `EncryptorError` on failure (e.g., incorrect secret, corrupted data).
+    fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+        &self,
+        secret: P,
+        bytes: &T,
+    ) -> Result<Bytes, EncryptorError>;
+
+    /// Encrypts data from a source stream and writes the encrypted output to a destination stream,
+    /// using a provided secret.
+    ///
+    /// The source stream must implement `Read` and `Seek`. `Seek` might be used by
+    /// the underlying encryption algorithm or to determine stream length.
+    ///
+    /// # Parameters
+    /// - `secret`: The secret (e.g., password) for encryption. Must be `Send`.
+    /// - `source`: A mutable reference to the readable and seekable input stream providing plaintext data.
+    /// - `destination`: A mutable reference to the writable output stream for the ciphertext.
+    ///
+    /// # Returns
+    /// A `Result` containing the total number of bytes written to the `destination` stream on success,
+    /// or an `EncryptorError` on failure.
+    fn encrypt_bytes_stream<R: Read + Seek, W: Write, P: AsRef<[u8]> + Send>(
+        &self,
+        secret: P,
+        source: &mut R,
+        destination: &mut W,
+    ) -> Result<usize, EncryptorError>;
+
+    /// Decrypts data from a source stream and writes the decrypted output to a destination stream,
+    /// using a provided secret.
+    ///
+    /// The source stream must implement `Read` and `Seek`.
+    ///
+    /// # Parameters
+    /// - `secret`: The secret (e.g., password) used for decryption. Must be `Send`.
+    /// - `source`: A mutable reference to the readable and seekable input stream providing ciphertext data.
+    /// - `destination`: A mutable reference to the writable output stream for the plaintext.
+    ///
+    /// # Returns
+    /// A `Result` containing the total number of bytes written to the `destination` stream on success,
+    /// or an `EncryptorError` on failure.
+    fn decrypt_bytes_stream<R: Read + Seek, W: Write, P: AsRef<[u8]> + Send>(
+        &self,
+        secret: P,
+        source: &mut R,
+        destination: &mut W,
+    ) -> Result<usize, EncryptorError>;
+
+    /// Decrypts a slice of bytes using a base (e.g., fixed or internal)
+    /// obfuscation/decryption mechanism.
+    ///
+    /// This method is intended for scenarios where a user-provided secret is not used,
+    /// relying instead on a predefined transformation for basic obfuscation or a default key.
+    ///
+    /// # Parameters
+    /// - `bytes`: The obfuscated/encrypted byte data to decrypt.
+    ///
+    /// # Returns
+    /// A `Result` containing the de-obfuscated (plaintext) data as `Bytes` on success,
+    /// or an `EncryptorError` on failure.
+    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(
+        &self,
+        bytes: &T,
+    ) -> Result<Bytes, EncryptorError>;
+
+    /// Encrypts/obfuscates a slice of bytes using a base (e.g., fixed or internal)
+    /// obfuscation/encryption mechanism.
+    ///
+    /// This method does not require a user-provided secret and is suitable for
+    /// basic code obfuscation or default encryption tasks.
+    ///
+    /// # Parameters
+    /// - `bytes`: The plaintext byte data to encrypt/obfuscate.
+    ///
+    /// # Returns
+    /// A `Result` containing the obfuscated (encrypted) data as `Bytes` on success,
+    /// or an `EncryptorError` on failure.
+    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(
+        &self,
+        bytes: &T,
+    ) -> Result<Bytes, EncryptorError>;
+
+    /// Encrypts/obfuscates data from a source stream to a destination stream
+    /// using a base (e.g., fixed or internal) mechanism.
+    ///
+    /// This stream-based version is for basic obfuscation without a user-provided secret.
+    /// The source stream must implement `Read` and `Seek`.
+    ///
+    /// # Parameters
+    /// - `source`: A mutable reference to the readable and seekable input stream.
+    /// - `destination`: A mutable reference to the writable output stream.
+    ///
+    /// # Returns
+    /// A `Result` containing the total number of bytes written to the `destination` stream on success,
+    /// or an `EncryptorError` on failure.
+    fn base_encrypt_bytes_stream<R: Read + Seek, W: Write>(
+        &self,
+        source: &mut R,
+        destination: &mut W,
+    ) -> Result<usize, EncryptorError>;
+
+    /// Decrypts/de-obfuscates data from a source stream to a destination stream
+    /// using a base (e.g., fixed or internal) mechanism.
+    ///
+    /// This stream-based version is for de-obfuscating data that was processed
+    /// using the `base_encrypt_bytes_stream` or `base_encrypt_bytes` methods.
+    /// The source stream must implement `Read` and `Seek`.
+    ///
+    /// # Parameters
+    /// - `source`: A mutable reference to the readable and seekable input stream providing obfuscated data.
+    /// - `destination`: A mutable reference to the writable output stream for de-obfuscated data.
+    ///
+    /// # Returns
+    /// A `Result` containing the total number of bytes written to the `destination` stream on success,
+    /// or an `EncryptorError` on failure.
+    fn base_decrypt_bytes_stream<R: Read + Seek, W: Write>(
+        &self,
+        source: &mut R,
+        destination: &mut W,
+    ) -> Result<usize, EncryptorError>;
 }
 
 pub trait TenacityEncryptor: Clone + Copy {

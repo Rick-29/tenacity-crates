@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use traits::{TenacityEncryptor, TenacityMiddlewareStream, VersionTrait};
-use versions::{V1Encryptor, V2Encryptor};
+use versions::{error::EncryptorError, V1Encryptor, V2Encryptor};
 
 #[cfg(not(feature = "wasm"))]
 use utoipa::ToSchema;
@@ -35,19 +35,69 @@ impl Version {
 }
 
 impl VersionTrait for Version {
-    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
+    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> Result<Bytes, EncryptorError> {
         match self {
             Self::V1 => V1Encryptor.base_decrypt_bytes(bytes),
             Self::V2(v2) => v2.base_decrypt_bytes(bytes),
         }
     }
 
-    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> anyhow::Result<Bytes> {
+    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> Result<Bytes, EncryptorError> {
         match self {
             Self::V1 => V1Encryptor.base_encrypt_bytes(bytes),
             Self::V2(v2) => v2.base_encrypt_bytes(bytes),
 
         }
+    }
+
+    fn base_decrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write>(
+            &self,
+            source: &mut R,
+            destination: &mut W,
+        ) -> Result<usize, EncryptorError> {
+        todo!()
+    }
+
+    fn base_encrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write>(
+            &self,
+            source: &mut R,
+            destination: &mut W,
+        ) -> Result<usize, EncryptorError> {
+        todo!()
+    }
+
+    fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+            &self,
+            secret: P,
+            bytes: &T,
+        ) -> Result<Bytes, EncryptorError> {
+        todo!()
+    }
+
+    fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
+            &self,
+            secret: P,
+            bytes: &T,
+        ) -> Result<Bytes, EncryptorError> {
+        todo!()
+    }
+
+    fn decrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write, P: AsRef<[u8]> + Send>(
+            &self,
+            secret: P,
+            source: &mut R,
+            destination: &mut W,
+        ) -> Result<usize, EncryptorError> {
+        todo!()
+    }
+
+    fn encrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write, P: AsRef<[u8]> + Send>(
+            &self,
+            secret: P,
+            source: &mut R,
+            destination: &mut W,
+        ) -> Result<usize, EncryptorError> {
+        todo!()
     }
 }
 
@@ -130,8 +180,8 @@ impl TenacityMiddleware for Version {
         P: AsRef<[u8]> + Send,
     {
         match self {
-            Self::V1 => V1Encryptor.encrypt_bytes(secret, data),
-            Self::V2(v2) => v2.encrypt_bytes(secret, data),
+            Self::V1 => TenacityMiddleware::encrypt_bytes(&V1Encryptor, secret, data),
+            Self::V2(v2) => TenacityMiddleware::encrypt_bytes(v2, secret, data),
         }    
     }
 
@@ -141,8 +191,8 @@ impl TenacityMiddleware for Version {
         P: AsRef<[u8]> + Send,
     {
         match self {
-            Self::V1 => V1Encryptor.decrypt_bytes(secret, data),
-            Self::V2(v2) => v2.decrypt_bytes(secret, data),
+            Self::V1 => TenacityMiddleware::decrypt_bytes(&V1Encryptor, secret, data),
+            Self::V2(v2) => TenacityMiddleware::decrypt_bytes(v2, secret, data),
         }    
     }
 }

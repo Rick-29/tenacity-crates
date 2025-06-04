@@ -184,12 +184,7 @@ impl TenacityEncryptor for V2Encryptor {}
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::{read_to_string, File, OpenOptions}, io::{BufReader, Cursor, Read, Seek, Write}};
-
-    use aead::stream::NonceSize;
-    use aes_gcm::{aead::{AeadMutInPlace, Buffer}, AeadCore, Nonce};
-    use rand::rng;
-
+    use std::{fs::{read_to_string, OpenOptions}, io::{Cursor, Read, Seek, Write}};
     use super::*;
 
     #[test]

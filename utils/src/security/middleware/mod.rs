@@ -2,6 +2,7 @@ pub mod traits;
 pub mod versions;
 
 use core::{fmt, str};
+use std::io::{Read, Write, Seek};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -18,7 +19,7 @@ use super::TenacityMiddleware;
 #[cfg_attr(not(feature = "wasm"), derive(ToSchema))]
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 #[serde(tag = "type")]
-pub enum Version {
+pub enum Version { 
     #[default]
     V1,
     V2(V2Encryptor),
@@ -35,14 +36,17 @@ impl Version {
 }
 
 impl VersionTrait for Version {
-    const DEFAULT_KEY: &[u8] = b"VersionTraitDefault";
-    
+    const DEFAULT_KEY: &[u8] = b"VersionTraitDefault"; // This will never be used
+
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,
             secret: P,
             bytes: &T,
         ) -> Result<Bytes, EncryptorError> {
-        todo!()
+        match self {
+            Self::V1 => VersionTrait::decrypt_bytes(&V1Encryptor, secret, bytes),
+            Self::V2(v2) => VersionTrait::decrypt_bytes(v2, secret, bytes)
+        }
     }
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
@@ -50,25 +54,34 @@ impl VersionTrait for Version {
             secret: P,
             bytes: &T,
         ) -> Result<Bytes, EncryptorError> {
-        todo!()
+        match self {
+            Self::V1 => VersionTrait::encrypt_bytes(&V1Encryptor, secret, bytes),
+            Self::V2(v2) => VersionTrait::encrypt_bytes(v2, secret, bytes)
+        }
     }
 
-    fn decrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write, P: AsRef<[u8]> + Send>(
+    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
             &self,
             secret: P,
             source: &mut R,
             destination: &mut W,
         ) -> Result<usize, EncryptorError> {
-        todo!()
+        match self {
+            Self::V1 => VersionTrait::decrypt_bytes_stream(&V1Encryptor, secret, source, destination),
+            Self::V2(v2) => VersionTrait::decrypt_bytes_stream(v2, secret, source, destination)
+        }
     }
 
-    fn encrypt_bytes_stream<R: std::io::Read + std::io::Seek, W: std::io::Write, P: AsRef<[u8]> + Send>(
+    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
             &self,
             secret: P,
             source: &mut R,
             destination: &mut W,
         ) -> Result<usize, EncryptorError> {
-        todo!()
+        match self {
+            Self::V1 => VersionTrait::encrypt_bytes_stream(&V1Encryptor, secret, source, destination),
+            Self::V2(v2) => VersionTrait::encrypt_bytes_stream(v2, secret, source, destination)
+        }
     }
 }
 

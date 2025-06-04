@@ -14,6 +14,7 @@ pub enum EncryptorError {
     MagicCryptDecryption(#[from] magic_crypt::MagicCryptError),
     #[error("Std IO error, {0}")]
     Io(#[from] std::io::Error),
-
+    #[error("Version Parsing error, recieved invalid value '{0}'")]
+    VersionParsing(String)
 }
 

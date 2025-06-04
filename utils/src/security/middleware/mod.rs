@@ -4,7 +4,6 @@ pub mod versions;
 use core::{fmt, str};
 use std::io::{Read, Write, Seek};
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -86,13 +85,13 @@ impl VersionTrait for Version {
 }
 
 impl TryFrom<u16> for Version {
-    type Error = anyhow::Error;
+    type Error = EncryptorError;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Version::V1),
             2 => Ok(Version::V2(V2Encryptor::default())), // Using default as it will create a new random salt and nonce and for replicability i can use the `new_static` function
-            _ => Err(anyhow!("Could parse u16 to Version")),
+            _ => Err(EncryptorError::VersionParsing(value.to_string())),
         }
     }
 }
@@ -107,22 +106,22 @@ impl From<Version> for u16 {
 }
 
 impl TryFrom<&[u8]> for Version {
-    type Error = anyhow::Error;
+    type Error = EncryptorError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let value_str = str::from_utf8(value).map_err(anyhow::Error::from)?;
+        let value_str = str::from_utf8(value).map_err(|s| EncryptorError::VersionParsing(s.to_string()))?;
         Self::try_from(value_str)
     }
 }
 
 impl TryFrom<&str> for Version {
-    type Error = anyhow::Error;
+    type Error = EncryptorError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value.to_lowercase().as_str() {
             "v1" => Ok(Self::V1),
             "v2" => Ok(Self::V2(V2Encryptor::default())),
-            _ => Err(anyhow!("Could parse str to Version")),
+            _ => Err(EncryptorError::VersionParsing("Could parse str to Version".to_string())),
         }
     }
 }

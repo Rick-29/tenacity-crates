@@ -8,6 +8,10 @@ pub enum EncryptorError {
     AesGcmEncryption(aes_gcm::Error),
     #[error("AES-GCM decryption error, {0}")]
     AesGcmDecryption(aes_gcm::Error),
+    #[error("AEAD encryption error, {0}")]
+    AeadEncryption(aead::Error),
+    #[error("AEAD decryption error, {0}")]
+    AeadDecryption(aead::Error),
     #[error("Rand OS error, {0}")]
     RandOs(#[from] OsError),
     #[error("MagicCrypt Decryption error, {0}")]

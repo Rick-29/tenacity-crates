@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, Write, SeekFrom};
+use std::io::{Read, Write};
 use aead::stream::{EncryptorBE32, DecryptorBE32};
 use aes_gcm::{aead::Aead, Aes256Gcm, Key, KeyInit};
 use argon2::Argon2;
@@ -130,7 +130,7 @@ impl VersionTrait for V2Encryptor {
         Ok(Bytes::from(ciphertext_with_tag))
     }
 
-    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
             secret: P,
             source: &mut R,
@@ -140,22 +140,25 @@ impl VersionTrait for V2Encryptor {
         let cipher = Aes256Gcm::new(&key);
         let mut encryptor = EncryptorBE32::from_aead(cipher, self.nonce[..7].into());
         let mut buf = Vec::with_capacity(Self::CHUNK_SIZE);
+
+        let mut written: usize = 0;
+
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
         while source.take(Self::CHUNK_SIZE as u64).read_to_end(&mut buf)? == Self::CHUNK_SIZE {
-            let encrypted = encryptor.encrypt_next(buf.as_slice()).unwrap();
-            Write::write(destination, &encrypted).unwrap();
+            let encrypted = encryptor.encrypt_next(buf.as_slice()).map_err(EncryptorError::AeadEncryption)?;
+            written += Write::write(destination, &encrypted)?;
             buf.clear();
+        
         }
         // Encrypt last chunck smaller
-        let encrypted = encryptor.encrypt_last(buf.as_slice()).unwrap();
-        Write::write(destination, &encrypted).unwrap();
+        let encrypted = encryptor.encrypt_last(buf.as_slice()).map_err(EncryptorError::AeadEncryption)?;
+        written += Write::write(destination, &encrypted)?;
         buf.clear();
 
-        destination.seek(SeekFrom::End(0)).map(|d| d as usize).map_err(EncryptorError::from)
-
+        Ok(written)
     }
 
-    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
             secret: P,
             source: &mut R,
@@ -165,18 +168,20 @@ impl VersionTrait for V2Encryptor {
         let cipher = Aes256Gcm::new(&key);
         let mut encryptor = DecryptorBE32::from_aead(cipher, self.nonce[..7].into());
         let mut buf = Vec::with_capacity(Self::CHUNK_SIZE + 16); // Chunk size + MAC tag
+
+        let mut written: usize = 0;
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
         while source.take(Self::CHUNK_SIZE as u64 + 16).read_to_end(&mut buf)? == Self::CHUNK_SIZE + 16 {
-            let encrypted = encryptor.decrypt_next(buf.as_slice()).unwrap();
-            Write::write(destination, &encrypted).unwrap();
+            let encrypted = encryptor.decrypt_next(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
+            written += Write::write(destination, &encrypted)?;
             buf.clear();
         }
         // Encrypt last chunck smaller
-        let encrypted = encryptor.decrypt_next(buf.as_slice()).unwrap();
-        Write::write(destination, &encrypted).unwrap();
+        let encrypted = encryptor.decrypt_next(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
+        written += Write::write(destination, &encrypted)?;
         buf.clear();
 
-        destination.seek(SeekFrom::End(0)).map(|d| d as usize).map_err(EncryptorError::from)
+        Ok(written)
     }
 }
 

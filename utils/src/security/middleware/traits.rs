@@ -1,6 +1,6 @@
 use core::str;
 use std::str::FromStr;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Write};
 #[cfg(feature = "security")]
 use axum::{body::Body, extract::Request, http::HeaderValue, response::Response};
 
@@ -174,6 +174,8 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
 /// Implementors of this trait are expected to handle the specifics of the
 /// cryptographic algorithms for a particular "version" or configuration.
 pub trait VersionTrait {
+
+    
     /// The default key used by the base encryption/decryption methods.
     /// It provides a fixed encryption mechanism suitable for basic obfuscation.
     const DEFAULT_KEY: &[u8];
@@ -230,7 +232,7 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
         secret: P,
         source: &mut R,
@@ -250,7 +252,7 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
         secret: P,
         source: &mut R,
@@ -308,7 +310,7 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn base_encrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
+    fn base_encrypt_bytes_stream<R: Read, W: Write>(
         &self,
         source: &mut R,
         destination: &mut W,
@@ -330,7 +332,7 @@ pub trait VersionTrait {
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
-    fn base_decrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
+    fn base_decrypt_bytes_stream<R: Read, W: Write>(
         &self,
         source: &mut R,
         destination: &mut W,
@@ -440,4 +442,6 @@ mod tests {
 
         Ok(())
     }
+
+    
 }

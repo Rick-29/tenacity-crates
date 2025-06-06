@@ -2,7 +2,7 @@ pub mod traits;
 pub mod versions;
 
 use core::{fmt, str};
-use std::io::{Read, Write, Seek};
+use std::io::{Read, Write};
 
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -59,7 +59,7 @@ impl VersionTrait for Version {
         }
     }
 
-    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
             secret: P,
             source: &mut R,
@@ -71,7 +71,7 @@ impl VersionTrait for Version {
         }
     }
 
-    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
             secret: P,
             source: &mut R,

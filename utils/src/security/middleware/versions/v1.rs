@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Write};
 use core::str;
 use magic_crypt::generic_array::typenum::U1024;
 
@@ -81,7 +81,7 @@ impl VersionTrait for V1Encryptor {
             .map(Bytes::from)
     }
     
-    fn encrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
         secret: P,
         source: &mut R,
@@ -89,10 +89,10 @@ impl VersionTrait for V1Encryptor {
     ) -> super::EncryptorResult<usize> {
         let mc = new_magic_crypt!(secret, 256);
         mc.encrypt_reader_to_writer2::<U1024>(source, destination)?;
-        Ok(destination.seek(SeekFrom::End(0)).map(|d| d as usize)?)
+        Ok(0)
     }
     
-    fn decrypt_bytes_stream<R: Read + Seek, W: Write + Seek, P: AsRef<[u8]> + Send>(
+    fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
         secret: P,
         source: &mut R,
@@ -100,7 +100,7 @@ impl VersionTrait for V1Encryptor {
     ) -> super::EncryptorResult<usize> {
         let mc = new_magic_crypt!(secret, 256);
         mc.decrypt_reader_to_writer2::<U1024>(source, destination)?;
-        Ok(destination.seek(SeekFrom::End(0)).map(|d| d as usize)?)
+        Ok(0)
     }
     
     fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
@@ -111,7 +111,7 @@ impl VersionTrait for V1Encryptor {
         VersionTrait::decrypt_bytes(self, Self::KEY, bytes)
     }
     
-    fn base_encrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
+    fn base_encrypt_bytes_stream<R: Read, W: Write>(
         &self,
         source: &mut R,
         destination: &mut W,
@@ -119,7 +119,7 @@ impl VersionTrait for V1Encryptor {
         VersionTrait::encrypt_bytes_stream(self, Self::KEY, source, destination)
     }
     
-    fn base_decrypt_bytes_stream<R: Read + Seek, W: Write + Seek>(
+    fn base_decrypt_bytes_stream<R: Read, W: Write>(
         &self,
         source: &mut R,
         destination: &mut W,

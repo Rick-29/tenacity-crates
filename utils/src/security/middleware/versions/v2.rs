@@ -135,24 +135,24 @@ impl VersionTrait for V2Encryptor {
             secret: P,
             source: &mut R,
             destination: &mut W,
-        ) -> EncryptorResult<usize> {
+        ) -> EncryptorResult<u64> {
         let key = self.generate_key(secret)?;
         let cipher = Aes256Gcm::new(&key);
         let mut encryptor = EncryptorBE32::from_aead(cipher, self.nonce[..7].into());
         let mut buf = Vec::with_capacity(Self::CHUNK_SIZE);
 
-        let mut written: usize = 0;
+        let mut written: u64 = 0;
 
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
         while source.take(Self::CHUNK_SIZE as u64).read_to_end(&mut buf)? == Self::CHUNK_SIZE {
             let encrypted = encryptor.encrypt_next(buf.as_slice()).map_err(EncryptorError::AeadEncryption)?;
-            written += Write::write(destination, &encrypted)?;
+            written += Write::write(destination, &encrypted)? as u64;
             buf.clear();
         
         }
         // Encrypt last chunck smaller
         let encrypted = encryptor.encrypt_last(buf.as_slice()).map_err(EncryptorError::AeadEncryption)?;
-        written += Write::write(destination, &encrypted)?;
+        written += Write::write(destination, &encrypted)? as u64;
         buf.clear();
 
         Ok(written)
@@ -163,22 +163,22 @@ impl VersionTrait for V2Encryptor {
             secret: P,
             source: &mut R,
             destination: &mut W,
-        ) -> EncryptorResult<usize> {
+        ) -> EncryptorResult<u64> {
             let key = self.generate_key(secret)?;
         let cipher = Aes256Gcm::new(&key);
         let mut encryptor = DecryptorBE32::from_aead(cipher, self.nonce[..7].into());
         let mut buf = Vec::with_capacity(Self::CHUNK_SIZE + 16); // Chunk size + MAC tag
 
-        let mut written: usize = 0;
+        let mut written: u64 = 0;
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
         while source.take(Self::CHUNK_SIZE as u64 + 16).read_to_end(&mut buf)? == Self::CHUNK_SIZE + 16 {
             let encrypted = encryptor.decrypt_next(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
-            written += Write::write(destination, &encrypted)?;
+            written += Write::write(destination, &encrypted)? as u64;
             buf.clear();
         }
         // Encrypt last chunck smaller
         let encrypted = encryptor.decrypt_next(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
-        written += Write::write(destination, &encrypted)?;
+        written += Write::write(destination, &encrypted)? as u64;
         buf.clear();
 
         Ok(written)

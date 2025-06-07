@@ -237,7 +237,7 @@ pub trait VersionTrait {
         secret: P,
         source: &mut R,
         destination: &mut W,
-    ) -> EncryptorResult<usize>;
+    ) -> EncryptorResult<u64>;
 
     /// Decrypts data from a source stream and writes the decrypted output to a destination stream,
     /// using a provided secret.
@@ -257,7 +257,7 @@ pub trait VersionTrait {
         secret: P,
         source: &mut R,
         destination: &mut W,
-    ) -> EncryptorResult<usize>;
+    ) -> EncryptorResult<u64>;
 
     /// Decrypts a slice of bytes using a base (e.g., fixed or internal)
     /// obfuscation/decryption mechanism.
@@ -314,7 +314,7 @@ pub trait VersionTrait {
         &self,
         source: &mut R,
         destination: &mut W,
-    ) -> EncryptorResult<usize> {
+    ) -> EncryptorResult<u64> {
         self.encrypt_bytes_stream(Self::DEFAULT_KEY, source, destination)
     }
 
@@ -336,7 +336,7 @@ pub trait VersionTrait {
         &self,
         source: &mut R,
         destination: &mut W,
-    ) -> EncryptorResult<usize> {
+    ) -> EncryptorResult<u64> {
         self.decrypt_bytes_stream(Self::DEFAULT_KEY, source, destination)
     }
 }

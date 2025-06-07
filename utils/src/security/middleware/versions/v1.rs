@@ -86,7 +86,7 @@ impl VersionTrait for V1Encryptor {
         secret: P,
         source: &mut R,
         destination: &mut W,
-    ) -> super::EncryptorResult<usize> {
+    ) -> super::EncryptorResult<u64> {
         let mc = new_magic_crypt!(secret, 256);
         mc.encrypt_reader_to_writer2::<U1024>(source, destination)?;
         Ok(0)
@@ -97,7 +97,7 @@ impl VersionTrait for V1Encryptor {
         secret: P,
         source: &mut R,
         destination: &mut W,
-    ) -> super::EncryptorResult<usize> {
+    ) -> super::EncryptorResult<u64> {
         let mc = new_magic_crypt!(secret, 256);
         mc.decrypt_reader_to_writer2::<U1024>(source, destination)?;
         Ok(0)
@@ -115,7 +115,7 @@ impl VersionTrait for V1Encryptor {
         &self,
         source: &mut R,
         destination: &mut W,
-    ) -> super::EncryptorResult<usize> {
+    ) -> super::EncryptorResult<u64> {
         VersionTrait::encrypt_bytes_stream(self, Self::KEY, source, destination)
     }
     
@@ -123,7 +123,7 @@ impl VersionTrait for V1Encryptor {
         &self,
         source: &mut R,
         destination: &mut W,
-    ) -> super::EncryptorResult<usize> {
+    ) -> super::EncryptorResult<u64> {
         VersionTrait::decrypt_bytes_stream(self, Self::KEY, source, destination)
     }
 }

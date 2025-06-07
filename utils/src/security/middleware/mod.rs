@@ -64,7 +64,7 @@ impl VersionTrait for Version {
             secret: P,
             source: &mut R,
             destination: &mut W,
-        ) -> Result<usize, EncryptorError> {
+        ) -> Result<u64, EncryptorError> {
         match self {
             Self::V1 => VersionTrait::decrypt_bytes_stream(&V1Encryptor, secret, source, destination),
             Self::V2(v2) => VersionTrait::decrypt_bytes_stream(v2, secret, source, destination)
@@ -76,7 +76,7 @@ impl VersionTrait for Version {
             secret: P,
             source: &mut R,
             destination: &mut W,
-        ) -> Result<usize, EncryptorError> {
+        ) -> Result<u64, EncryptorError> {
         match self {
             Self::V1 => VersionTrait::encrypt_bytes_stream(&V1Encryptor, secret, source, destination),
             Self::V2(v2) => VersionTrait::encrypt_bytes_stream(v2, secret, source, destination)

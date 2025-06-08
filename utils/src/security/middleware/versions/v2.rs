@@ -63,9 +63,9 @@ impl V2Encryptor {
         let mut nonce = [0u8; NONCE_SIZE];
         OsRng.try_fill_bytes(&mut nonce)?;
         Ok(Self {
-                    salt,
-                    nonce,
-                })
+            salt,
+            nonce,
+        })
     }
 }
 
@@ -225,6 +225,8 @@ impl VersionTrait for V2Encryptor {
         written += Write::write(destination, &encrypted)? as u64;
         buf.clear();
 
+        // Flush the destination to ensure all data is written
+        destination.flush()?;
         Ok(written)
     }
 
@@ -251,6 +253,8 @@ impl VersionTrait for V2Encryptor {
         written += Write::write(destination, &encrypted)? as u64;
         buf.clear();
 
+        // Flush the destination to ensure all data is written
+        destination.flush()?;
         Ok(written)
     }
 }

@@ -13,6 +13,8 @@ use versions::{error::EncryptorError, V1Encryptor, V2Encryptor};
 #[cfg(not(feature = "wasm"))]
 use utoipa::ToSchema;
 
+use crate::security::middleware::traits::ConfigurableEncryptor;
+
 use super::TenacityMiddleware;
 
 #[cfg_attr(not(feature = "wasm"), derive(ToSchema))]
@@ -34,8 +36,15 @@ impl Version {
     }
 }
 
-impl VersionTrait for Version {
-    const DEFAULT_KEY: &[u8] = b"VersionTraitDefault"; // This will never be used
+impl ConfigurableEncryptor for Version {
+    type Error = EncryptorError;
+
+    fn size(&self) -> usize {
+        match self {
+            Self::V1 => V1Encryptor.size(),
+            Self::V2(v2) => v2.size()
+        }
+    }
 
     fn from_bytes(self, bytes: &mut &[u8]) -> versions::EncryptorResult<Self>
         where
@@ -61,6 +70,11 @@ impl VersionTrait for Version {
             Self::V2(v2) => v2.to_bytes()
         }
     }
+}
+
+impl VersionTrait for Version {
+    const DEFAULT_KEY: &[u8] = b"VersionTraitDefault"; // This will never be used
+
 
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,

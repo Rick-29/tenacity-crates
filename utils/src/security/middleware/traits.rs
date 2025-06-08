@@ -161,29 +161,13 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
     }
 }
 
-/// Defines a contract for versioned encryption and decryption operations.
-///
-/// This trait provides methods for transforming byte data, either as complete
-/// in-memory buffers or as streams. It supports two main modes of operation:
-///
-/// 1.  **Secret-based encryption/decryption:** Uses a user-provided secret (e.g., a password)
-///     for cryptographic operations.
-/// 2.  **Base encryption/decryption:** Implements a form of basic code obfuscation
-///     or a default, fixed encryption mechanism that does not require a dynamic user secret.
-///
-/// Implementors of this trait are expected to handle the specifics of the
-/// cryptographic algorithms for a particular "version" or configuration.
-pub trait VersionTrait: Default {
-    /// The size in bytes required to serialize this encryptor's configuration.
-    /// This is the exact number of bytes that will be read by `from_bytes` or `from_stream`.
-    const CONFIG_SIZE: usize = 0;
+/// A trait for types that can be serialized and deserialized as part of an encryptor's configuration.
+pub trait ConfigurableEncryptor: Sized {
+    type Error; 
 
-    /// The default key used by the base encryption/decryption methods.
-    const DEFAULT_KEY: &'static [u8];
-
-    /// Default chunk size for stream-based operations, in bytes.
-    const CHUNK_SIZE: usize = 1024; // 1 KiB
-
+    /// The size of the configuration in bytes, used for serialization.
+    fn size(&self) -> usize;
+    
     /// Creates an instance of the encryptor from a byte slice.
     ///
     /// This function reads `CONFIG_SIZE` bytes from the start of the slice,
@@ -196,7 +180,7 @@ pub trait VersionTrait: Default {
     /// # Returns
     /// A `Result` containing a new instance of `Self` on success, or an `EncryptorError`.
     #[allow(clippy::wrong_self_convention)]
-    fn from_bytes(self, bytes: &mut &[u8]) -> EncryptorResult<Self>
+    fn from_bytes(self, bytes: &mut &[u8]) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
@@ -210,7 +194,7 @@ pub trait VersionTrait: Default {
     /// # Returns
     /// A `Result` containing a new instance of `Self` on success, or an `EncryptorError`.
     #[allow(clippy::wrong_self_convention)]
-    fn from_stream<R: Read>(self, source: &mut R) -> EncryptorResult<Self>
+    fn from_stream<R: Read>(self, source: &mut R) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
@@ -222,6 +206,30 @@ pub trait VersionTrait: Default {
     /// # Returns
     /// A `Bytes` object containing the serialized configuration.
     fn to_bytes(&self) -> Bytes;
+
+}
+/// Defines a contract for versioned encryption and decryption operations.
+///
+/// This trait provides methods for transforming byte data, either as complete
+/// in-memory buffers or as streams. It supports two main modes of operation:
+///
+/// 1.  **Secret-based encryption/decryption:** Uses a user-provided secret (e.g., a password)
+///     for cryptographic operations.
+/// 2.  **Base encryption/decryption:** Implements a form of basic code obfuscation
+///     or a default, fixed encryption mechanism that does not require a dynamic user secret.
+///
+/// Implementors of this trait are expected to handle the specifics of the
+/// cryptographic algorithms for a particular "version" or configuration.
+pub trait VersionTrait: Default + ConfigurableEncryptor{
+    // /// The size in bytes required to serialize this encryptor's configuration.
+    // /// This is the exact number of bytes that will be read by `from_bytes` or `from_stream`.
+    // const CONFIG_SIZE: usize = 0;
+
+    /// The default key used by the base encryption/decryption methods.
+    const DEFAULT_KEY: &'static [u8];
+
+    /// Default chunk size for stream-based operations, in bytes.
+    const CHUNK_SIZE: usize = 1024; // 1 KiB
 
     /// Encrypts a slice of bytes using a provided secret.
     ///

@@ -6,7 +6,7 @@ use bytes::Bytes;
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
 use serde::{Deserialize, Serialize};
 
-use crate::security::middleware::versions::{error::EncryptorError, EncryptorResult};
+use crate::security::middleware::{traits::ConfigurableEncryptor, versions::{error::EncryptorError, EncryptorResult}};
 
 use super::super::traits::{
     TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream, VersionTrait,
@@ -57,8 +57,12 @@ impl TenacityMiddleware for V1Encryptor {
 
 impl TenacityEncryptor for V1Encryptor {}
 
-impl VersionTrait for V1Encryptor {
-    const DEFAULT_KEY: &[u8] = Self::KEY;
+impl ConfigurableEncryptor for V1Encryptor {
+    type Error = EncryptorError;
+
+    fn size(&self) -> usize {
+        0 // V1Encryptor does not have a size
+    }
 
     fn from_bytes(self, _bytes: &mut &[u8]) -> EncryptorResult<Self>
         where
@@ -75,6 +79,11 @@ impl VersionTrait for V1Encryptor {
     fn to_bytes(&self) -> Bytes {
         Bytes::new()
     }
+
+}
+
+impl VersionTrait for V1Encryptor {
+    const DEFAULT_KEY: &[u8] = Self::KEY;
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
         &self,

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(not(feature = "wasm"))]
 use utoipa::ToSchema;
 
-use crate::security::{middleware::traits::VersionTrait, TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream};
+use crate::security::{middleware::traits::{ConfigurableEncryptor, VersionTrait}, TenacityEncryptor, TenacityMiddleware, TenacityMiddlewareStream};
 
 use super::{error::EncryptorError, EncryptorResult};
 const SALT_SIZE: usize = 16;
@@ -45,6 +45,9 @@ impl Default for V2Encryptor {
 
 
 impl V2Encryptor {
+    const CONFIG_SIZE: usize = SALT_SIZE + NONCE_SIZE;
+
+
     fn generate_key<P>(&self, secret: P) -> EncryptorResult<Key<Aes256Gcm>>
     where
         P: AsRef<[u8]> 
@@ -103,11 +106,13 @@ impl TenacityMiddleware for V2Encryptor {
 
 impl TenacityMiddlewareStream for V2Encryptor {}
 
-impl VersionTrait for V2Encryptor {
-    const CONFIG_SIZE: usize = SALT_SIZE + NONCE_SIZE;
-    const DEFAULT_KEY: &[u8] = DEFAULT_PASSWORD;
-    const CHUNK_SIZE: usize = 1014 * 4;
+impl ConfigurableEncryptor for V2Encryptor {
+    type Error = EncryptorError;
 
+    fn size(&self) -> usize {
+        Self::CONFIG_SIZE
+    }
+        
     /// Serializes the salt and nonce into a single Bytes object.
     fn to_bytes(&self) -> Bytes {
         // Create a vector with the exact capacity needed.
@@ -160,6 +165,12 @@ impl VersionTrait for V2Encryptor {
         // 4. Construct and return the struct.
         Ok(Self { salt, nonce })
     }
+}
+
+impl VersionTrait for V2Encryptor {
+    const DEFAULT_KEY: &[u8] = DEFAULT_PASSWORD;
+    const CHUNK_SIZE: usize = 1014 * 4;
+
 
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(

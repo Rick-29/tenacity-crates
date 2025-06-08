@@ -128,7 +128,10 @@ impl ConfigurableEncryptor for V2Encryptor {
     fn from_bytes(self, bytes: &mut &[u8]) -> EncryptorResult<Self> {
         // 1. Check if there are enough bytes to read the config.
         if bytes.len() < Self::CONFIG_SIZE {
-            return Err(EncryptorError::NotEnoughData);
+            return Err(EncryptorError::NotEnoughData {
+                min: Self::CONFIG_SIZE,
+                got: bytes.len(),
+            });
         }
 
         // 2. Split the slice into the config part and the remainder.

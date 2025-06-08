@@ -20,8 +20,8 @@ pub enum EncryptorError {
     Io(#[from] std::io::Error),
     #[error("Version Parsing error, recieved invalid value '{0}'")]
     VersionParsing(String),
-    #[error("Not enough data to deserialize configuration")]
-    NotEnoughData,
+    #[error("Not enough data to deserialize configuration, expected at least {min} bytes, got {got} bytes")]
+    NotEnoughData { min: usize, got: usize },
     #[error("Unimplemented, {0}")]
     Unimplemented(String),
 }

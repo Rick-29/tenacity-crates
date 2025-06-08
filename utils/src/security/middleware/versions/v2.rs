@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use aead::stream::{EncryptorBE32, DecryptorBE32};
 use aes_gcm::{aead::Aead, Aes256Gcm, Key, KeyInit};
 use argon2::Argon2;
@@ -104,7 +104,63 @@ impl TenacityMiddleware for V2Encryptor {
 impl TenacityMiddlewareStream for V2Encryptor {}
 
 impl VersionTrait for V2Encryptor {
+    const CONFIG_SIZE: usize = SALT_SIZE + NONCE_SIZE;
     const DEFAULT_KEY: &[u8] = DEFAULT_PASSWORD;
+    const CHUNK_SIZE: usize = 1014 * 4;
+
+    /// Serializes the salt and nonce into a single Bytes object.
+    fn to_bytes(&self) -> Bytes {
+        // Create a vector with the exact capacity needed.
+        let mut config_bytes = Vec::with_capacity(Self::CONFIG_SIZE);
+        // Append the salt and nonce.
+        config_bytes.extend_from_slice(&self.salt);
+        config_bytes.extend_from_slice(&self.nonce);
+        // Convert the Vec to Bytes.
+        Bytes::from(config_bytes)
+    }
+
+    /// Creates an instance from a byte slice, consuming the necessary bytes.
+    fn from_bytes(self, bytes: &mut &[u8]) -> EncryptorResult<Self> {
+        // 1. Check if there are enough bytes to read the config.
+        if bytes.len() < Self::CONFIG_SIZE {
+            return Err(EncryptorError::NotEnoughData);
+        }
+
+        // 2. Split the slice into the config part and the remainder.
+        let (config_bytes, remainder) = bytes.split_at(Self::CONFIG_SIZE);
+
+        // 3. Create a new V2Encryptor instance by parsing the config bytes.
+        // We can use a cursor to read from the slice like a stream.
+        let encryptor = self.from_stream(&mut Cursor::new(config_bytes))?;
+
+        // 4. IMPORTANT: Advance the original slice to point to the remainder.
+        *bytes = remainder;
+
+        Ok(encryptor)
+    }
+
+        /// Creates an instance by reading exactly CONFIG_SIZE bytes from a stream.
+    fn from_stream<R: Read>(self, source: &mut R) -> EncryptorResult<Self> {
+        let mut config_buf = [0u8; Self::CONFIG_SIZE];
+
+        // 1. Read the exact number of bytes for the configuration.
+        // `read_exact` is perfect here; it returns an error if the stream ends prematurely.
+        source.read_exact(&mut config_buf)?;
+
+        // 2. Parse the buffer to get the salt.
+        let salt = config_buf[0..SALT_SIZE]
+            .try_into()
+            .expect("Slice with incorrect length cannot be created from consts");
+
+        // 3. Parse the rest of the buffer to get the nonce.
+        let nonce = config_buf[SALT_SIZE..Self::CONFIG_SIZE]
+            .try_into()
+            .expect("Slice with incorrect length cannot be created from consts");
+            
+        // 4. Construct and return the struct.
+        Ok(Self { salt, nonce })
+    }
+
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,

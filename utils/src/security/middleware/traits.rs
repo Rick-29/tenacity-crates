@@ -173,18 +173,55 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
 ///
 /// Implementors of this trait are expected to handle the specifics of the
 /// cryptographic algorithms for a particular "version" or configuration.
-pub trait VersionTrait {
+pub trait VersionTrait: Default {
+    /// The size in bytes required to serialize this encryptor's configuration.
+    /// This is the exact number of bytes that will be read by `from_bytes` or `from_stream`.
+    const CONFIG_SIZE: usize = 0;
 
-    
     /// The default key used by the base encryption/decryption methods.
-    /// It provides a fixed encryption mechanism suitable for basic obfuscation.
-    const DEFAULT_KEY: &[u8];
+    const DEFAULT_KEY: &'static [u8];
 
     /// Default chunk size for stream-based operations, in bytes.
-    ///
-    /// Implementations may use this as a suggestion for buffer sizes when
-    /// reading from or writing to streams.
     const CHUNK_SIZE: usize = 1024; // 1 KiB
+
+    /// Creates an instance of the encryptor from a byte slice.
+    ///
+    /// This function reads `CONFIG_SIZE` bytes from the start of the slice,
+    /// uses them to construct `Self`, and advances the slice past the bytes read.
+    ///
+    /// # Parameters
+    /// - `bytes`: A mutable reference to a byte slice. The slice will be advanced
+    ///           by `CONFIG_SIZE` upon success.
+    ///
+    /// # Returns
+    /// A `Result` containing a new instance of `Self` on success, or an `EncryptorError`.
+    #[allow(clippy::wrong_self_convention)]
+    fn from_bytes(self, bytes: &mut &[u8]) -> EncryptorResult<Self>
+    where
+        Self: Sized;
+
+    /// Creates an instance of the encryptor from a readable stream.
+    ///
+    /// This function reads exactly `CONFIG_SIZE` bytes from the stream to construct `Self`.
+    ///
+    /// # Parameters
+    /// - `source`: A mutable reference to a readable input stream.
+    ///
+    /// # Returns
+    /// A `Result` containing a new instance of `Self` on success, or an `EncryptorError`.
+    #[allow(clippy::wrong_self_convention)]
+    fn from_stream<R: Read>(self, source: &mut R) -> EncryptorResult<Self>
+    where
+        Self: Sized;
+
+    /// Serializes the encryptor's configuration into bytes.
+    ///
+    /// The returned bytes should be exactly `CONFIG_SIZE` in length and are suitable
+    /// for prepending to a ciphertext stream.
+    ///
+    /// # Returns
+    /// A `Bytes` object containing the serialized configuration.
+    fn to_bytes(&self) -> Bytes;
 
     /// Encrypts a slice of bytes using a provided secret.
     ///

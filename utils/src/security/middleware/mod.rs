@@ -37,6 +37,31 @@ impl Version {
 impl VersionTrait for Version {
     const DEFAULT_KEY: &[u8] = b"VersionTraitDefault"; // This will never be used
 
+    fn from_bytes(self, bytes: &mut &[u8]) -> versions::EncryptorResult<Self>
+        where
+            Self: Sized {
+        match self {
+            Self::V1 => Ok(Self::V1),
+            Self::V2(v2) => v2.from_bytes(bytes).map(Self::V2)
+        }
+    }
+
+    fn from_stream<R: Read>(self, source: &mut R) -> versions::EncryptorResult<Self>
+        where
+            Self: Sized {
+        match self {
+            Self::V1 => Ok(Self::V1),
+            Self::V2(v2) => v2.from_stream(source).map(Self::V2)
+        }
+    }
+
+    fn to_bytes(&self) -> Bytes {
+        match self {
+            Self::V1 => V1Encryptor.to_bytes(),
+            Self::V2(v2) => v2.to_bytes()
+        }
+    }
+
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,
             secret: P,

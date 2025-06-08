@@ -19,6 +19,10 @@ pub enum EncryptorError {
     #[error("Std IO error, {0}")]
     Io(#[from] std::io::Error),
     #[error("Version Parsing error, recieved invalid value '{0}'")]
-    VersionParsing(String)
+    VersionParsing(String),
+    #[error("Not enough data to deserialize configuration")]
+    NotEnoughData,
+    #[error("Unimplemented, {0}")]
+    Unimplemented(String),
 }
 

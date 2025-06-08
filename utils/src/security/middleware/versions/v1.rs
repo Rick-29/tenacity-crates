@@ -60,6 +60,22 @@ impl TenacityEncryptor for V1Encryptor {}
 impl VersionTrait for V1Encryptor {
     const DEFAULT_KEY: &[u8] = Self::KEY;
 
+    fn from_bytes(self, _bytes: &mut &[u8]) -> EncryptorResult<Self>
+        where
+            Self: Sized {
+        Ok(V1Encryptor)
+    }
+
+    fn from_stream<R: Read>(self, _source: &mut R) -> EncryptorResult<Self>
+        where
+            Self: Sized {
+        Ok(V1Encryptor)
+    }
+
+    fn to_bytes(&self) -> Bytes {
+        Bytes::new()
+    }
+
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
         &self,
         secret: P,

@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 use core::str;
-use magic_crypt::generic_array::typenum::U1024;
+use aead::consts::{U128, U256, U512, U1024, U2048, U4096, U8192, U16384, U32768, U65536};
 
 use bytes::Bytes;
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
@@ -111,8 +111,21 @@ impl VersionTrait for V1Encryptor {
         secret: &P,
         source: &mut R,
         destination: &mut W,
+        chunk_size: u64
     ) -> super::EncryptorResult<u64> {
         let mc = new_magic_crypt!(secret, 256);
+        match chunk_size {
+            128 => mc.encrypt_reader_to_writer2::<U128>(source, destination)?,
+            256 => mc.encrypt_reader_to_writer2::<U256>(source, destination)?,
+            512 => mc.encrypt_reader_to_writer2::<U512>(source, destination)?,
+            2048 => mc.encrypt_reader_to_writer2::<U2048>(source, destination)?,
+            4096 => mc.encrypt_reader_to_writer2::<U4096>(source, destination)?,
+            8192 => mc.encrypt_reader_to_writer2::<U8192>(source, destination)?,
+            16384 => mc.encrypt_reader_to_writer2::<U16384>(source, destination)?,
+            32768 => mc.encrypt_reader_to_writer2::<U32768>(source, destination)?,
+            65536 => mc.encrypt_reader_to_writer2::<U65536>(source, destination)?,
+            _ => mc.encrypt_reader_to_writer2::<U1024>(source, destination)?
+        }
         mc.encrypt_reader_to_writer2::<U1024>(source, destination)?;
         Ok(0)
     }
@@ -122,34 +135,22 @@ impl VersionTrait for V1Encryptor {
         secret: &P,
         source: &mut R,
         destination: &mut W,
+        chunk_size: u64
     ) -> super::EncryptorResult<u64> {
         let mc = new_magic_crypt!(secret, 256);
-        mc.decrypt_reader_to_writer2::<U1024>(source, destination)?;
+        match chunk_size {
+            128 => mc.encrypt_reader_to_writer2::<U128>(source, destination)?,
+            256 => mc.encrypt_reader_to_writer2::<U256>(source, destination)?,
+            512 => mc.encrypt_reader_to_writer2::<U512>(source, destination)?,
+            2048 => mc.encrypt_reader_to_writer2::<U2048>(source, destination)?,
+            4096 => mc.encrypt_reader_to_writer2::<U4096>(source, destination)?,
+            8192 => mc.encrypt_reader_to_writer2::<U8192>(source, destination)?,
+            16384 => mc.encrypt_reader_to_writer2::<U16384>(source, destination)?,
+            32768 => mc.encrypt_reader_to_writer2::<U32768>(source, destination)?,
+            65536 => mc.encrypt_reader_to_writer2::<U65536>(source, destination)?,
+            _ => mc.encrypt_reader_to_writer2::<U1024>(source, destination)?
+        }
         Ok(0)
-    }
-    
-    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
-        VersionTrait::encrypt_bytes(self, &Self::KEY, bytes)
-    }
-        
-    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
-        VersionTrait::decrypt_bytes(self, &Self::KEY, bytes)
-    }
-    
-    fn base_encrypt_bytes_stream<R: Read, W: Write>(
-        &self,
-        source: &mut R,
-        destination: &mut W,
-    ) -> super::EncryptorResult<u64> {
-        VersionTrait::encrypt_bytes_stream(self, &Self::KEY, source, destination)
-    }
-    
-    fn base_decrypt_bytes_stream<R: Read, W: Write>(
-        &self,
-        source: &mut R,
-        destination: &mut W,
-    ) -> super::EncryptorResult<u64> {
-        VersionTrait::decrypt_bytes_stream(self, &Self::KEY, source, destination)
     }
 }
 

@@ -205,6 +205,7 @@ impl VersionTrait for V2Encryptor {
             secret: &P,
             source: &mut R,
             destination: &mut W,
+            chunk_size: u64,
         ) -> EncryptorResult<u64> {
         let key = self.generate_key(secret)?;
         let cipher = Aes256Gcm::new(&key);
@@ -212,9 +213,12 @@ impl VersionTrait for V2Encryptor {
         let mut buf = Vec::with_capacity(Self::CHUNK_SIZE);
 
         let mut written: u64 = 0;
-
+        let chunk_size = match chunk_size == 0 {
+            true => Self::CHUNK_SIZE as u64,
+            false => chunk_size,
+        };
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
-        while source.take(Self::CHUNK_SIZE as u64).read_to_end(&mut buf)? == Self::CHUNK_SIZE {
+        while source.take(chunk_size).read_to_end(&mut buf)? == chunk_size as usize {
             let encrypted = encryptor.encrypt_next(buf.as_slice()).map_err(EncryptorError::AeadEncryption)?;
             written += Write::write(destination, &encrypted)? as u64;
             buf.clear();
@@ -235,6 +239,7 @@ impl VersionTrait for V2Encryptor {
             secret: &P,
             source: &mut R,
             destination: &mut W,
+            chunk_size: u64
         ) -> EncryptorResult<u64> {
             let key = self.generate_key(secret)?;
         let cipher = Aes256Gcm::new(&key);
@@ -242,8 +247,13 @@ impl VersionTrait for V2Encryptor {
         let mut buf = Vec::with_capacity(Self::CHUNK_SIZE + 16); // Chunk size + MAC tag
 
         let mut written: u64 = 0;
+        let chunk_size = match chunk_size == 0 {
+            true => Self::CHUNK_SIZE as u64,
+            false => chunk_size,
+        };
+
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
-        while source.take(Self::CHUNK_SIZE as u64 + 16).read_to_end(&mut buf)? == Self::CHUNK_SIZE + 16 {
+        while source.take(chunk_size + 16).read_to_end(&mut buf)? == chunk_size as usize + 16 {
             let encrypted = encryptor.decrypt_next(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
             written += Write::write(destination, &encrypted)? as u64;
             buf.clear();

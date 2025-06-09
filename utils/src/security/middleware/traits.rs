@@ -244,7 +244,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// or an `EncryptorError` on failure.
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
         &self,
-        secret: P,
+        secret: &P,
         bytes: &T,
     ) -> EncryptorResult<Bytes>;
 
@@ -259,7 +259,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// or an `EncryptorError` on failure (e.g., incorrect secret, corrupted data).
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
         &self,
-        secret: P,
+        secret: &P,
         bytes: &T,
     ) -> EncryptorResult<Bytes>;
 
@@ -279,7 +279,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// or an `EncryptorError` on failure.
     fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
-        secret: P,
+        secret: &P,
         source: &mut R,
         destination: &mut W,
     ) -> EncryptorResult<u64>;
@@ -299,7 +299,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// or an `EncryptorError` on failure.
     fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
-        secret: P,
+        secret: &P,
         source: &mut R,
         destination: &mut W,
     ) -> EncryptorResult<u64>;
@@ -320,7 +320,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         &self,
         bytes: &T,
     ) -> EncryptorResult<Bytes> {
-        self.decrypt_bytes(Self::DEFAULT_KEY, bytes)
+        self.decrypt_bytes(&Self::DEFAULT_KEY, bytes)
     }
 
     /// Encrypts/obfuscates a slice of bytes using a base (e.g., fixed or internal)
@@ -339,7 +339,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         &self,
         bytes: &T,
     ) -> EncryptorResult<Bytes> {
-        self.encrypt_bytes(Self::DEFAULT_KEY, bytes)
+        self.encrypt_bytes(&Self::DEFAULT_KEY, bytes)
     }
 
     /// Encrypts/obfuscates data from a source stream to a destination stream
@@ -360,7 +360,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         source: &mut R,
         destination: &mut W,
     ) -> EncryptorResult<u64> {
-        self.encrypt_bytes_stream(Self::DEFAULT_KEY, source, destination)
+        self.encrypt_bytes_stream(&Self::DEFAULT_KEY, source, destination)
     }
 
     /// Decrypts/de-obfuscates data from a source stream to a destination stream
@@ -382,7 +382,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         source: &mut R,
         destination: &mut W,
     ) -> EncryptorResult<u64> {
-        self.decrypt_bytes_stream(Self::DEFAULT_KEY, source, destination)
+        self.decrypt_bytes_stream(&Self::DEFAULT_KEY, source, destination)
     }
 }
 

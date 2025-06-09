@@ -92,7 +92,7 @@ impl TenacityMiddleware for V2Encryptor {
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        VersionTrait::encrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
+        VersionTrait::encrypt_bytes(self, &secret, data).map_err(anyhow::Error::from)
     }
 
     fn decrypt_bytes<T, P>(&self, secret: P, data: &T) -> anyhow::Result<Bytes>
@@ -100,7 +100,7 @@ impl TenacityMiddleware for V2Encryptor {
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        VersionTrait::decrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
+        VersionTrait::decrypt_bytes(self, &secret, data).map_err(anyhow::Error::from)
     }
 }
 
@@ -178,7 +178,7 @@ impl VersionTrait for V2Encryptor {
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,
-            secret: P,
+            secret: &P,
             bytes: &T,
         ) -> EncryptorResult<Bytes> {
         let key = self.generate_key(secret)?;
@@ -190,7 +190,7 @@ impl VersionTrait for V2Encryptor {
 
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,
-            secret: P,
+            secret: &P,
             bytes: &T,
         ) -> EncryptorResult<Bytes> {
         let key = self.generate_key(secret)?;
@@ -202,7 +202,7 @@ impl VersionTrait for V2Encryptor {
 
     fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
-            secret: P,
+            secret: &P,
             source: &mut R,
             destination: &mut W,
         ) -> EncryptorResult<u64> {
@@ -232,7 +232,7 @@ impl VersionTrait for V2Encryptor {
 
     fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
-            secret: P,
+            secret: &P,
             source: &mut R,
             destination: &mut W,
         ) -> EncryptorResult<u64> {
@@ -320,7 +320,7 @@ mod tests {
         let mut data = OpenOptions::new().read(true).open("Cargo.toml").unwrap();
         let mut buf = Vec::with_capacity(chunk_size);
         ciphertext.write_all(&(chunk_size as u64).to_be_bytes()).unwrap();
-        let ciphertext_test = VersionTrait::encrypt_bytes(&encryptor_test, [0u8;KEY_SIZE], read_to_string("Cargo.toml").unwrap().as_bytes()).unwrap();
+        let ciphertext_test = VersionTrait::encrypt_bytes(&encryptor_test, &[0u8;KEY_SIZE], read_to_string("Cargo.toml").unwrap().as_bytes()).unwrap();
 		// Prepend ciphertext with the nonce
 		ciphertext.write_all(nonce).unwrap();
 

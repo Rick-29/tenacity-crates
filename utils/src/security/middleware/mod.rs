@@ -78,7 +78,7 @@ impl VersionTrait for Version {
 
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,
-            secret: P,
+            secret: &P,
             bytes: &T,
         ) -> Result<Bytes, EncryptorError> {
         match self {
@@ -89,7 +89,7 @@ impl VersionTrait for Version {
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
             &self,
-            secret: P,
+            secret: &P,
             bytes: &T,
         ) -> Result<Bytes, EncryptorError> {
         match self {
@@ -100,7 +100,7 @@ impl VersionTrait for Version {
 
     fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
-            secret: P,
+            secret: &P,
             source: &mut R,
             destination: &mut W,
         ) -> Result<u64, EncryptorError> {
@@ -112,7 +112,7 @@ impl VersionTrait for Version {
 
     fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
             &self,
-            secret: P,
+            secret: &P,
             source: &mut R,
             destination: &mut W,
         ) -> Result<u64, EncryptorError> {

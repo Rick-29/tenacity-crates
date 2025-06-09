@@ -44,14 +44,14 @@ impl TenacityMiddleware for V1Encryptor {
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        VersionTrait::encrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
+        VersionTrait::encrypt_bytes(self, &secret, data).map_err(anyhow::Error::from)
     }
     fn decrypt_bytes<T, P>(&self, secret: P, data: &T) -> anyhow::Result<Bytes>
     where
         T: ?Sized + AsRef<[u8]>,
         P: AsRef<[u8]> + Send,
     {
-        VersionTrait::decrypt_bytes(self, secret, data).map_err(anyhow::Error::from)
+        VersionTrait::decrypt_bytes(self, &secret, data).map_err(anyhow::Error::from)
     }
 }
 
@@ -87,7 +87,7 @@ impl VersionTrait for V1Encryptor {
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
         &self,
-        secret: P,
+        secret: &P,
         bytes: &T,
     ) -> super::EncryptorResult<Bytes> {
         let mc: magic_crypt::MagicCrypt256 = new_magic_crypt!(secret, 256);
@@ -97,7 +97,7 @@ impl VersionTrait for V1Encryptor {
     
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
         &self,
-        secret: P,
+        secret: &P,
         bytes: &T,
     ) -> super::EncryptorResult<Bytes> {
         let mc = new_magic_crypt!(secret, 256);
@@ -108,7 +108,7 @@ impl VersionTrait for V1Encryptor {
     
     fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
-        secret: P,
+        secret: &P,
         source: &mut R,
         destination: &mut W,
     ) -> super::EncryptorResult<u64> {
@@ -119,7 +119,7 @@ impl VersionTrait for V1Encryptor {
     
     fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
-        secret: P,
+        secret: &P,
         source: &mut R,
         destination: &mut W,
     ) -> super::EncryptorResult<u64> {
@@ -129,11 +129,11 @@ impl VersionTrait for V1Encryptor {
     }
     
     fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
-        VersionTrait::encrypt_bytes(self, Self::KEY, bytes)
+        VersionTrait::encrypt_bytes(self, &Self::KEY, bytes)
     }
         
     fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
-        VersionTrait::decrypt_bytes(self, Self::KEY, bytes)
+        VersionTrait::decrypt_bytes(self, &Self::KEY, bytes)
     }
     
     fn base_encrypt_bytes_stream<R: Read, W: Write>(
@@ -141,7 +141,7 @@ impl VersionTrait for V1Encryptor {
         source: &mut R,
         destination: &mut W,
     ) -> super::EncryptorResult<u64> {
-        VersionTrait::encrypt_bytes_stream(self, Self::KEY, source, destination)
+        VersionTrait::encrypt_bytes_stream(self, &Self::KEY, source, destination)
     }
     
     fn base_decrypt_bytes_stream<R: Read, W: Write>(
@@ -149,7 +149,7 @@ impl VersionTrait for V1Encryptor {
         source: &mut R,
         destination: &mut W,
     ) -> super::EncryptorResult<u64> {
-        VersionTrait::decrypt_bytes_stream(self, Self::KEY, source, destination)
+        VersionTrait::decrypt_bytes_stream(self, &Self::KEY, source, destination)
     }
 }
 

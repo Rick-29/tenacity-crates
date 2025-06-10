@@ -139,16 +139,16 @@ impl VersionTrait for V1Encryptor {
     ) -> super::EncryptorResult<u64> {
         let mc = new_magic_crypt!(secret, 256);
         match chunk_size {
-            128 => mc.encrypt_reader_to_writer2::<U128>(source, destination)?,
-            256 => mc.encrypt_reader_to_writer2::<U256>(source, destination)?,
-            512 => mc.encrypt_reader_to_writer2::<U512>(source, destination)?,
-            2048 => mc.encrypt_reader_to_writer2::<U2048>(source, destination)?,
-            4096 => mc.encrypt_reader_to_writer2::<U4096>(source, destination)?,
-            8192 => mc.encrypt_reader_to_writer2::<U8192>(source, destination)?,
-            16384 => mc.encrypt_reader_to_writer2::<U16384>(source, destination)?,
-            32768 => mc.encrypt_reader_to_writer2::<U32768>(source, destination)?,
-            65536 => mc.encrypt_reader_to_writer2::<U65536>(source, destination)?,
-            _ => mc.encrypt_reader_to_writer2::<U1024>(source, destination)?
+            128 => mc.decrypt_reader_to_writer2::<U128>(source, destination)?,
+            256 => mc.decrypt_reader_to_writer2::<U256>(source, destination)?,
+            512 => mc.decrypt_reader_to_writer2::<U512>(source, destination)?,
+            2048 => mc.decrypt_reader_to_writer2::<U2048>(source, destination)?,
+            4096 => mc.decrypt_reader_to_writer2::<U4096>(source, destination)?,
+            8192 => mc.decrypt_reader_to_writer2::<U8192>(source, destination)?,
+            16384 => mc.decrypt_reader_to_writer2::<U16384>(source, destination)?,
+            32768 => mc.decrypt_reader_to_writer2::<U32768>(source, destination)?,
+            65536 => mc.decrypt_reader_to_writer2::<U65536>(source, destination)?,
+            _ => mc.decrypt_reader_to_writer2::<U1024>(source, destination)?
         }
         Ok(0)
     }
@@ -216,6 +216,8 @@ impl TenacityMiddlewareStream for V1Encryptor {}
 
 #[cfg(test)]
 mod tests {
+    use std::fs::{File, read_to_string};
+    use std::io::{Read, Write};
 
     use super::*;
 
@@ -227,4 +229,83 @@ mod tests {
         let decrypted = V1Encryptor.base_decrypt_bytes(&encrypted.unwrap());
         assert_eq!(bytes, decrypted.unwrap());
     }
+
+    #[test]
+    fn test_large_file_stream() {
+        // Test with a large file (like cargo.lock)
+        let file_path = "tests/Cargo.lock";
+        let mut file = File::open(file_path).unwrap();
+        
+        // Create a temporary file to write the encrypted data
+        let temp_file = "tests/encrypted.chipa";
+        let mut writer = File::create(temp_file).unwrap();
+
+        // Encrypt the file
+        let id = [0; 16]; // Dummy ID for testing
+        let encryptor = V1Encryptor;
+        let result = encryptor.encrypt_bytes_stream(
+            &id,
+            &mut file,
+            &mut writer,
+            1024 // Use a chunk size of 1KB
+        ).unwrap();
+
+        // Now decrypt the file
+        let mut decrypted_file = File::create("tests/decrypted.txt").unwrap();
+
+        let decryptor = V1Encryptor;
+        let decrypt_result = decryptor.decrypt_bytes_stream(
+            &id,
+            &mut File::open(temp_file).unwrap(),
+            &mut decrypted_file,
+            1024 // Use the same chunk size
+        ).unwrap();
+
+        // Verify the decrypted content
+        let mut actual_content = String::new();
+        decrypted_file.read_to_string(&mut actual_content).unwrap();
+        let expected_content = read_to_string(file_path).unwrap();
+        assert_eq!(actual_content.trim_end(), expected_content.trim_end());
+
+    }
+
+    #[test]
+    fn test_small_file_stream() -> Result<(), anyhow::Error> {
+        // Test with a small file
+        let file_path = "README.md";
+        let mut file = File::open(file_path)?;
+
+        // Create a temporary file to write the encrypted data
+        let temp_file = format!("temp_{}.tmp", file_path);
+        let mut writer = File::create(&temp_file)?;
+
+        // Encrypt the file
+        let id = [0; 16]; // Dummy ID for testing
+        let encryptor = V1Encryptor;
+        let result = encryptor.encrypt_bytes_stream(
+            &id,
+            &mut file,
+            &mut writer,
+            1024 // Use a chunk size of 1KB
+        )?;
+
+        // Now decrypt the file
+        let mut decrypted_file = File::create(format!("decrypted_{}", temp_file))?;
+
+        let decryptor = V1Encryptor;
+        let decrypt_result = decryptor.decrypt_bytes_stream(
+            &id,
+            &mut File::open(temp_file)?,
+            &mut decrypted_file,
+            1024 // Use the same chunk size
+        )?;
+        // Verify the decrypted content
+        let mut actual_content = String::new();
+        decrypted_file.read_to_string(&mut actual_content)?;
+        let expected_content = read_to_string(file_path)?;
+        assert_eq!(actual_content.trim_end(), expected_content.trim_end());
+
+        Ok(())
+    }
+
 }

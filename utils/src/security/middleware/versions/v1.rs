@@ -1,6 +1,5 @@
 use std::io::{Read, Write};
 use core::str;
-use aead::consts::{U128, U256, U512, U1024, U2048, U4096, U8192, U16384, U32768, U65536};
 
 use bytes::Bytes;
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
@@ -114,22 +113,41 @@ impl VersionTrait for V1Encryptor {
         chunk_size: u64
     ) -> super::EncryptorResult<u64> {
         let mc = new_magic_crypt!(secret, 256);
-        match chunk_size {
-            128 => mc.encrypt_reader_to_writer2::<U128>(source, destination)?,
-            256 => mc.encrypt_reader_to_writer2::<U256>(source, destination)?,
-            512 => mc.encrypt_reader_to_writer2::<U512>(source, destination)?,
-            2048 => mc.encrypt_reader_to_writer2::<U2048>(source, destination)?,
-            4096 => mc.encrypt_reader_to_writer2::<U4096>(source, destination)?,
-            8192 => mc.encrypt_reader_to_writer2::<U8192>(source, destination)?,
-            16384 => mc.encrypt_reader_to_writer2::<U16384>(source, destination)?,
-            32768 => mc.encrypt_reader_to_writer2::<U32768>(source, destination)?,
-            65536 => mc.encrypt_reader_to_writer2::<U65536>(source, destination)?,
-            _ => mc.encrypt_reader_to_writer2::<U1024>(source, destination)?
+        let mut written = 0;
+        if chunk_size < 16 {
+            return Err(EncryptorError::InvalidChunkSize { 
+                got: chunk_size as usize,
+                min: 16,
+            });
         }
-        mc.encrypt_reader_to_writer2::<U1024>(source, destination)?;
-        Ok(0)
+        let mut buf = Vec::with_capacity(chunk_size as usize);
+        while source.take(chunk_size).read_to_end(&mut buf)? == chunk_size as usize {
+            let encrypted = mc.encrypt_bytes_to_bytes(&buf);
+            destination.write_all(&encrypted)?;
+            written += encrypted.len();
+            buf.clear();
+        }
+        if !buf.is_empty() {
+            let encrypted = mc.encrypt_bytes_to_bytes(&buf);
+            destination.write_all(&encrypted)?;
+            written += encrypted.len();
+            buf.clear();
+        }
+        written.try_into().map_err(|e: std::num::TryFromIntError| EncryptorError::ConversionError { from: "usize".to_string(), to: "u64".to_string(), error: e.to_string() })
+        // match chunk_size {
+        //     128 => { mc.encrypt_reader_to_writer2::<U128>(source, destination)?; Ok(0) },
+        //     256 => { mc.encrypt_reader_to_writer2::<U256>(source, destination)?; Ok(0) },
+        //     512 => { mc.encrypt_reader_to_writer2::<U512>(source, destination)?; Ok(0) },
+        //     2048 => { mc.encrypt_reader_to_writer2::<U2048>(source, destination)?; Ok(0) },
+        //     4096 => { mc.encrypt_reader_to_writer2::<U4096>(source, destination)?; Ok(0) },
+        //     8192 => { mc.encrypt_reader_to_writer2::<U8192>(source, destination)?; Ok(0) },
+        //     16384 => { mc.encrypt_reader_to_writer2::<U16384>(source, destination)?; Ok(0) },
+        //     32768 => { mc.encrypt_reader_to_writer2::<U32768>(source, destination)?; Ok(0) },
+        //     65536 => { mc.encrypt_reader_to_writer2::<U65536>(source, destination)?; Ok(0) },
+        //     _ => { mc.encrypt_reader_to_writer2::<U1024>(source, destination)?; Ok(0) },
+        // }
     }
-    
+
     fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
         &self,
         secret: &P,
@@ -138,19 +156,28 @@ impl VersionTrait for V1Encryptor {
         chunk_size: u64
     ) -> super::EncryptorResult<u64> {
         let mc = new_magic_crypt!(secret, 256);
-        match chunk_size {
-            128 => mc.decrypt_reader_to_writer2::<U128>(source, destination)?,
-            256 => mc.decrypt_reader_to_writer2::<U256>(source, destination)?,
-            512 => mc.decrypt_reader_to_writer2::<U512>(source, destination)?,
-            2048 => mc.decrypt_reader_to_writer2::<U2048>(source, destination)?,
-            4096 => mc.decrypt_reader_to_writer2::<U4096>(source, destination)?,
-            8192 => mc.decrypt_reader_to_writer2::<U8192>(source, destination)?,
-            16384 => mc.decrypt_reader_to_writer2::<U16384>(source, destination)?,
-            32768 => mc.decrypt_reader_to_writer2::<U32768>(source, destination)?,
-            65536 => mc.decrypt_reader_to_writer2::<U65536>(source, destination)?,
-            _ => mc.decrypt_reader_to_writer2::<U1024>(source, destination)?
+        let mut written = 0;
+        if chunk_size < 16 {
+            return Err(EncryptorError::InvalidChunkSize { 
+                got: chunk_size as usize,
+                min: 16,
+            });
         }
-        Ok(0)
+
+        let mut buf = Vec::with_capacity(chunk_size as usize + 16); // Tag size
+        while source.take(chunk_size + 16).read_to_end(&mut buf)? == chunk_size as usize + 16 {
+            let encrypted = mc.decrypt_bytes_to_bytes(&buf)?;
+            destination.write_all(&encrypted)?;
+            written += encrypted.len();
+            buf.clear();
+        }
+        if !buf.is_empty() {
+            let encrypted = mc.decrypt_bytes_to_bytes(&buf)?;
+            destination.write_all(&encrypted)?;
+            written += encrypted.len();
+            buf.clear();
+        }
+        written.try_into().map_err(|e: std::num::TryFromIntError| EncryptorError::ConversionError { from: "usize".to_string(), to: "u64".to_string(), error: e.to_string() })
     }
 }
 
@@ -217,7 +244,8 @@ impl TenacityMiddlewareStream for V1Encryptor {}
 #[cfg(test)]
 mod tests {
     use std::fs::{File, read_to_string};
-    use std::io::{Read, Write};
+    use std::io::Read;
+
 
     use super::*;
 
@@ -249,9 +277,10 @@ mod tests {
             &mut writer,
             1024 // Use a chunk size of 1KB
         ).unwrap();
-
+        dbg!(result);
         // Now decrypt the file
-        let mut decrypted_file = File::create("tests/decrypted.txt").unwrap();
+        let decrypted_path = "tests/decrypted.txt";
+        let mut decrypted_file = File::create(decrypted_path).unwrap();
 
         let decryptor = V1Encryptor;
         let decrypt_result = decryptor.decrypt_bytes_stream(
@@ -259,11 +288,11 @@ mod tests {
             &mut File::open(temp_file).unwrap(),
             &mut decrypted_file,
             1024 // Use the same chunk size
-        ).unwrap();
-
+        ).inspect_err(|e| println!("{}", e)).unwrap();
+        dbg!(decrypt_result);
         // Verify the decrypted content
-        let mut actual_content = String::new();
-        decrypted_file.read_to_string(&mut actual_content).unwrap();
+        // decrypted_file.read_to_string(&mut actual_content).unwrap();
+        let actual_content = read_to_string(decrypted_path).unwrap();
         let expected_content = read_to_string(file_path).unwrap();
         assert_eq!(actual_content.trim_end(), expected_content.trim_end());
 
@@ -288,7 +317,7 @@ mod tests {
             &mut writer,
             1024 // Use a chunk size of 1KB
         )?;
-
+        dbg!(result);
         // Now decrypt the file
         let mut decrypted_file = File::create(format!("decrypted_{}", temp_file))?;
 
@@ -299,12 +328,12 @@ mod tests {
             &mut decrypted_file,
             1024 // Use the same chunk size
         )?;
+        dbg!(decrypt_result);
         // Verify the decrypted content
         let mut actual_content = String::new();
         decrypted_file.read_to_string(&mut actual_content)?;
         let expected_content = read_to_string(file_path)?;
         assert_eq!(actual_content.trim_end(), expected_content.trim_end());
-
         Ok(())
     }
 

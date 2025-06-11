@@ -220,13 +220,15 @@ impl VersionTrait for V2Encryptor {
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
         while source.take(chunk_size).read_to_end(&mut buf)? == chunk_size as usize {
             let encrypted = encryptor.encrypt_next(buf.as_slice()).map_err(EncryptorError::AeadEncryption)?;
-            written += Write::write(destination, &encrypted)? as u64;
+            Write::write_all(destination, &encrypted)?;
+            written += encrypted.len() as u64;            
             buf.clear();
         
         }
         // Encrypt last chunck smaller
         let encrypted = encryptor.encrypt_last(buf.as_slice()).map_err(EncryptorError::AeadEncryption)?;
-        written += Write::write(destination, &encrypted)? as u64;
+        Write::write_all(destination, &encrypted)?;
+        written += encrypted.len() as u64;        
         buf.clear();
 
         // Flush the destination to ensure all data is written
@@ -245,7 +247,7 @@ impl VersionTrait for V2Encryptor {
         let cipher = Aes256Gcm::new(&key);
         let mut encryptor = DecryptorBE32::from_aead(cipher, self.nonce[..7].into());
         let mut buf = Vec::with_capacity(Self::CHUNK_SIZE + 16); // Chunk size + MAC tag
-
+            dbg!("here");
         let mut written: u64 = 0;
         let chunk_size = match chunk_size == 0 {
             true => Self::CHUNK_SIZE as u64,
@@ -254,13 +256,18 @@ impl VersionTrait for V2Encryptor {
 
         // Encrypt all the data while the length os the data is equal to `Self::CHUNK_SIZE`
         while source.take(chunk_size + 16).read_to_end(&mut buf)? == chunk_size as usize + 16 {
+            dbg!(&buf.len());
             let encrypted = encryptor.decrypt_next(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
-            written += Write::write(destination, &encrypted)? as u64;
+            Write::write_all(destination, &encrypted)?;
+            written += encrypted.len() as u64;
             buf.clear();
         }
+
+        dbg!(buf.len());
         // Encrypt last chunck smaller
-        let encrypted = encryptor.decrypt_next(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
-        written += Write::write(destination, &encrypted)? as u64;
+        let encrypted = encryptor.decrypt_last(buf.as_slice()).map_err(EncryptorError::AeadDecryption)?;
+        Write::write_all(destination, &encrypted)?;
+        written += encrypted.len() as u64;        
         buf.clear();
 
         // Flush the destination to ensure all data is written

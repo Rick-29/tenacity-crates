@@ -1,8 +1,8 @@
-use core::str;
-use std::str::FromStr;
-use std::io::{Read, Write};
 #[cfg(feature = "security")]
 use axum::{body::Body, extract::Request, http::HeaderValue, response::Response};
+use core::str;
+use std::io::{Read, Write};
+use std::str::FromStr;
 
 use bytes::Bytes;
 #[cfg(feature = "security")]
@@ -163,11 +163,11 @@ pub trait TenacityMiddlewareStream: TenacityMiddleware {
 
 /// A trait for types that can be serialized and deserialized as part of an encryptor's configuration.
 pub trait ConfigurableEncryptor: Sized {
-    type Error; 
+    type Error;
 
     /// The size of the configuration in bytes, used for serialization.
     fn size(&self) -> usize;
-    
+
     /// Creates an instance of the encryptor from a byte slice.
     ///
     /// This function reads `CONFIG_SIZE` bytes from the start of the slice,
@@ -206,7 +206,6 @@ pub trait ConfigurableEncryptor: Sized {
     /// # Returns
     /// A `Bytes` object containing the serialized configuration.
     fn to_bytes(&self) -> Bytes;
-
 }
 /// Defines a contract for versioned encryption and decryption operations.
 ///
@@ -220,7 +219,7 @@ pub trait ConfigurableEncryptor: Sized {
 ///
 /// Implementors of this trait are expected to handle the specifics of the
 /// cryptographic algorithms for a particular "version" or configuration.
-pub trait VersionTrait: Default + ConfigurableEncryptor{
+pub trait VersionTrait: Default + ConfigurableEncryptor {
     // /// The size in bytes required to serialize this encryptor's configuration.
     // /// This is the exact number of bytes that will be read by `from_bytes` or `from_stream`.
     // const CONFIG_SIZE: usize = 0;
@@ -274,7 +273,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// - `source`: A mutable reference to the readable and seekable input stream providing plaintext data.
     /// - `destination`: A mutable reference to the writable output stream for the ciphertext.
     /// - `chunk_size`: The size of each chunk to read from the source stream, in bytes. If `0`, the default chunk size is used.
-    /// 
+    ///
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
@@ -283,7 +282,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         secret: &P,
         source: &mut R,
         destination: &mut W,
-        chunck_size: u64
+        chunck_size: u64,
     ) -> EncryptorResult<u64>;
 
     /// Decrypts data from a source stream and writes the decrypted output to a destination stream,
@@ -296,7 +295,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// - `source`: A mutable reference to the readable and seekable input stream providing ciphertext data.
     /// - `destination`: A mutable reference to the writable output stream for the plaintext.
     /// - `chunk_size`: The size of each chunk to read from the source stream, in bytes. If `0`, the default chunk size is used.
-    /// 
+    ///
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
@@ -305,7 +304,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         secret: &P,
         source: &mut R,
         destination: &mut W,
-        chunck_size: u64
+        chunck_size: u64,
     ) -> EncryptorResult<u64>;
 
     /// Decrypts a slice of bytes using a base (e.g., fixed or internal)
@@ -320,10 +319,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// # Returns
     /// A `Result` containing the de-obfuscated (plaintext) data as `Bytes` on success,
     /// or an `EncryptorError` on failure.
-    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(
-        &self,
-        bytes: &T,
-    ) -> EncryptorResult<Bytes> {
+    fn base_decrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
         self.decrypt_bytes(&Self::DEFAULT_KEY, bytes)
     }
 
@@ -339,10 +335,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// # Returns
     /// A `Result` containing the obfuscated (encrypted) data as `Bytes` on success,
     /// or an `EncryptorError` on failure.
-    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(
-        &self,
-        bytes: &T,
-    ) -> EncryptorResult<Bytes> {
+    fn base_encrypt_bytes<T: ?Sized + AsRef<[u8]>>(&self, bytes: &T) -> EncryptorResult<Bytes> {
         self.encrypt_bytes(&Self::DEFAULT_KEY, bytes)
     }
 
@@ -356,7 +349,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// - `source`: A mutable reference to the readable and seekable input stream.
     /// - `destination`: A mutable reference to the writable output stream.
     /// - `chunk_size`: The size of each chunk to read from the source stream, in bytes. If `0`, the default chunk size is used.
-    /// 
+    ///
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
@@ -364,7 +357,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         &self,
         source: &mut R,
         destination: &mut W,
-        chunck_size: u64
+        chunck_size: u64,
     ) -> EncryptorResult<u64> {
         self.encrypt_bytes_stream(&Self::DEFAULT_KEY, source, destination, chunck_size)
     }
@@ -380,7 +373,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
     /// - `source`: A mutable reference to the readable and seekable input stream providing obfuscated data.
     /// - `destination`: A mutable reference to the writable output stream for de-obfuscated data.
     /// - `chunk_size`: The size of each chunk to read from the source stream, in bytes. If `0`, the default chunk size is used.
-    /// 
+    ///
     /// # Returns
     /// A `Result` containing the total number of bytes written to the `destination` stream on success,
     /// or an `EncryptorError` on failure.
@@ -388,7 +381,7 @@ pub trait VersionTrait: Default + ConfigurableEncryptor{
         &self,
         source: &mut R,
         destination: &mut W,
-        chunck_size: u64
+        chunck_size: u64,
     ) -> EncryptorResult<u64> {
         self.decrypt_bytes_stream(&Self::DEFAULT_KEY, source, destination, chunck_size)
     }
@@ -495,6 +488,4 @@ mod tests {
 
         Ok(())
     }
-
-    
 }

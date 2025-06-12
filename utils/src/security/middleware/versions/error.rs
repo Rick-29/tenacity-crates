@@ -27,6 +27,9 @@ pub enum EncryptorError {
     #[error("Invalid chunk size, minimum is {min}, got {got}")]
     InvalidChunkSize { min: usize, got: usize },
     #[error("Couldn't convert data from {from} to {to}, error: {error}")]
-    ConversionError { from: String, to: String, error: String}
+    ConversionError {
+        from: String,
+        to: String,
+        error: String,
+    },
 }
-

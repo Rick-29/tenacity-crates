@@ -20,18 +20,18 @@ use super::TenacityMiddleware;
 #[cfg_attr(not(feature = "wasm"), derive(ToSchema))]
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 #[serde(tag = "type")]
-pub enum Version { 
+pub enum Version {
     #[default]
     V1,
     V2(V2Encryptor),
 }
 
 impl Version {
-    pub fn encryptor(&self) -> impl TenacityEncryptor + TenacityMiddlewareStream  {
+    pub fn encryptor(&self) -> impl TenacityEncryptor + TenacityMiddlewareStream {
         match self {
             Self::V1 => V1Encryptor,
-            _ => V1Encryptor // TODO: fix, this it's very badly written
-            // Self::V2(v2) => Box::new(v2.clone())
+            _ => V1Encryptor, // TODO: fix, this it's very badly written
+                              // Self::V2(v2) => Box::new(v2.clone())
         }
     }
 }
@@ -42,32 +42,34 @@ impl ConfigurableEncryptor for Version {
     fn size(&self) -> usize {
         match self {
             Self::V1 => V1Encryptor.size(),
-            Self::V2(v2) => v2.size()
+            Self::V2(v2) => v2.size(),
         }
     }
 
     fn from_bytes(self, bytes: &mut &[u8]) -> versions::EncryptorResult<Self>
-        where
-            Self: Sized {
+    where
+        Self: Sized,
+    {
         match self {
             Self::V1 => Ok(Self::V1),
-            Self::V2(v2) => v2.from_bytes(bytes).map(Self::V2)
+            Self::V2(v2) => v2.from_bytes(bytes).map(Self::V2),
         }
     }
 
     fn from_stream<R: Read>(self, source: &mut R) -> versions::EncryptorResult<Self>
-        where
-            Self: Sized {
+    where
+        Self: Sized,
+    {
         match self {
             Self::V1 => Ok(Self::V1),
-            Self::V2(v2) => v2.from_stream(source).map(Self::V2)
+            Self::V2(v2) => v2.from_stream(source).map(Self::V2),
         }
     }
 
     fn to_bytes(&self) -> Bytes {
         match self {
             Self::V1 => V1Encryptor.to_bytes(),
-            Self::V2(v2) => v2.to_bytes()
+            Self::V2(v2) => v2.to_bytes(),
         }
     }
 }
@@ -75,53 +77,67 @@ impl ConfigurableEncryptor for Version {
 impl VersionTrait for Version {
     const DEFAULT_KEY: &[u8] = b"VersionTraitDefault"; // This will never be used
 
-
     fn decrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
-            &self,
-            secret: &P,
-            bytes: &T,
-        ) -> Result<Bytes, EncryptorError> {
+        &self,
+        secret: &P,
+        bytes: &T,
+    ) -> Result<Bytes, EncryptorError> {
         match self {
             Self::V1 => VersionTrait::decrypt_bytes(&V1Encryptor, secret, bytes),
-            Self::V2(v2) => VersionTrait::decrypt_bytes(v2, secret, bytes)
+            Self::V2(v2) => VersionTrait::decrypt_bytes(v2, secret, bytes),
         }
     }
 
     fn encrypt_bytes<P: AsRef<[u8]> + Send, T: ?Sized + AsRef<[u8]>>(
-            &self,
-            secret: &P,
-            bytes: &T,
-        ) -> Result<Bytes, EncryptorError> {
+        &self,
+        secret: &P,
+        bytes: &T,
+    ) -> Result<Bytes, EncryptorError> {
         match self {
             Self::V1 => VersionTrait::encrypt_bytes(&V1Encryptor, secret, bytes),
-            Self::V2(v2) => VersionTrait::encrypt_bytes(v2, secret, bytes)
+            Self::V2(v2) => VersionTrait::encrypt_bytes(v2, secret, bytes),
         }
     }
 
     fn decrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
-            &self,
-            secret: &P,
-            source: &mut R,
-            destination: &mut W,
-            chunk_size: u64,
-        ) -> Result<u64, EncryptorError> {
+        &self,
+        secret: &P,
+        source: &mut R,
+        destination: &mut W,
+        chunk_size: u64,
+    ) -> Result<u64, EncryptorError> {
         match self {
-            Self::V1 => VersionTrait::decrypt_bytes_stream(&V1Encryptor, secret, source, destination, chunk_size),
-            Self::V2(v2) => VersionTrait::decrypt_bytes_stream(v2, secret, source, destination, chunk_size)
+            Self::V1 => VersionTrait::decrypt_bytes_stream(
+                &V1Encryptor,
+                secret,
+                source,
+                destination,
+                chunk_size,
+            ),
+            Self::V2(v2) => {
+                VersionTrait::decrypt_bytes_stream(v2, secret, source, destination, chunk_size)
+            }
         }
     }
 
     fn encrypt_bytes_stream<R: Read, W: Write, P: AsRef<[u8]> + Send>(
-            &self,
-            secret: &P,
-            source: &mut R,
-            destination: &mut W,
-            chunk_size: u64,
-
-        ) -> Result<u64, EncryptorError> {
+        &self,
+        secret: &P,
+        source: &mut R,
+        destination: &mut W,
+        chunk_size: u64,
+    ) -> Result<u64, EncryptorError> {
         match self {
-            Self::V1 => VersionTrait::encrypt_bytes_stream(&V1Encryptor, secret, source, destination, chunk_size),
-            Self::V2(v2) => VersionTrait::encrypt_bytes_stream(v2, secret, source, destination, chunk_size)
+            Self::V1 => VersionTrait::encrypt_bytes_stream(
+                &V1Encryptor,
+                secret,
+                source,
+                destination,
+                chunk_size,
+            ),
+            Self::V2(v2) => {
+                VersionTrait::encrypt_bytes_stream(v2, secret, source, destination, chunk_size)
+            }
         }
     }
 }
@@ -142,7 +158,7 @@ impl From<Version> for u16 {
     fn from(value: Version) -> Self {
         match value {
             Version::V1 => 1,
-            Version::V2(_) => 2
+            Version::V2(_) => 2,
         }
     }
 }
@@ -151,7 +167,8 @@ impl TryFrom<&[u8]> for Version {
     type Error = EncryptorError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let value_str = str::from_utf8(value).map_err(|s| EncryptorError::VersionParsing(s.to_string()))?;
+        let value_str =
+            str::from_utf8(value).map_err(|s| EncryptorError::VersionParsing(s.to_string()))?;
         Self::try_from(value_str)
     }
 }
@@ -163,7 +180,9 @@ impl TryFrom<&str> for Version {
         match value.to_lowercase().as_str() {
             "v1" => Ok(Self::V1),
             "v2" => Ok(Self::V2(V2Encryptor::default())),
-            _ => Err(EncryptorError::VersionParsing("Could parse str to Version".to_string())),
+            _ => Err(EncryptorError::VersionParsing(
+                "Could parse str to Version".to_string(),
+            )),
         }
     }
 }
@@ -172,7 +191,7 @@ impl fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::V1 => write!(f, "V1"),
-            Self::V2(v2) => write!(f, "V2({:?})", v2)
+            Self::V2(v2) => write!(f, "V2({:?})", v2),
         }
     }
 }
@@ -207,7 +226,7 @@ impl TenacityMiddleware for Version {
         match self {
             Self::V1 => TenacityMiddleware::encrypt_bytes(&V1Encryptor, secret, data),
             Self::V2(v2) => TenacityMiddleware::encrypt_bytes(v2, secret, data),
-        }    
+        }
     }
 
     fn decrypt_bytes<T, P>(&self, secret: P, data: &T) -> anyhow::Result<Bytes>
@@ -218,7 +237,7 @@ impl TenacityMiddleware for Version {
         match self {
             Self::V1 => TenacityMiddleware::decrypt_bytes(&V1Encryptor, secret, data),
             Self::V2(v2) => TenacityMiddleware::decrypt_bytes(v2, secret, data),
-        }    
+        }
     }
 }
 
